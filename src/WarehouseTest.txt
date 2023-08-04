@@ -1,0 +1,25 @@
+// import React from 'react';
+// import { wik, wikui } from '@zxh19890103/wik';
+
+// import "@zxh19890103/styles.css";
+// import { OnMouseOverOut, OnSelect } from '@zxh19890103/wik/interfaces';
+// import { DEFAULT_WAREHOUSE_DEPENDENCIES } from '@zxh19890103/wik/2d/basic/Warehouse.class';
+// import { Circle } from '@zxh19890103/wik/2d';
+
+// wik.configProviders("root", {
+//   [wik.interfaces.IGlobalConstManager]: wik.GlobalConstManager,
+//   [wik.interfaces.ILogger]: { useFactory: () => console },
+// })
+// 
+// @wik.inject(wik.interfaces.IInjector)
+// // @wik.provides(wikui.const$$.DEFAULT_WAREHOUSE_DEPENDENCIES)
+// 
+// export class WarehouseTest extends wikui.WikWarehouse{
+//   layout(data?: any): void | Promise<void> {
+//     for (let x = 0; x < 100; x++){
+//       for (let y = 0; y < 100; y++) {
+//         this.add("point", this.create(wikui.Circle, x, y));
+//       }
+//     }
+//   }
+// }
