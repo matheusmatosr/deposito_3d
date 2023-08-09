@@ -34,13 +34,28 @@ const getShelfPosition = (x: number, z: number, rows: number, columns: number): 
 };
 
 const Shelf3D: React.FC<ShelfProps> = ({ x, z, occupied, onClick, position }) => {
+  const [animationActive, setAnimationActive] = useState(false);
+  const ref = useRef<THREE.Mesh>(null); 
+
+  const handleDoubleClick = () => {
+    setAnimationActive(!animationActive);
+  };
+
+  useEffect(() => {
+    if (!animationActive && ref.current) {
+      ref.current.scale.set(1, 1, 1);
+    }
+  }, [animationActive]);
+
   return (
-    <mesh onClick={onClick} position={position}>
+    <mesh onClick={onClick} onDoubleClick={handleDoubleClick} position={position} ref={ref}>
       <boxGeometry args={[shelfSize, 0.1, shelfSize]} />
       <meshStandardMaterial color={occupied ? '#ff7675' : '#42cd62'} />
+      {animationActive && <AvailablePositionHighlight position={[0, 0, 0]} />}
     </mesh>
   );
 };
+
 
 const AvailablePositionHighlight: React.FC<{ position: [number, number, number] }> = ({ position }) => {
   const ref = useRef<THREE.Mesh>(null);
@@ -83,12 +98,18 @@ const App: React.FC = () => {
     setWarehouse(newWarehouse);
   };
 
+ const [animatedCount, setAnimatedCount] = useState<number>(0);
+
   const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
     const updatedWarehouse = [...warehouse];
-    updatedWarehouse[rowIndex][columnIndex] = !updatedWarehouse[rowIndex][columnIndex];
+    const updatedShelfValue = !updatedWarehouse[rowIndex][columnIndex];
+    updatedWarehouse[rowIndex][columnIndex] = updatedShelfValue;
     setWarehouse(updatedWarehouse);
 
-    if (!updatedWarehouse[rowIndex][columnIndex]) {
+    const animatedShelfCount = updatedWarehouse.flat().filter((animated) => animated).length;
+    setAnimatedCount(animatedShelfCount);
+
+    if (!updatedShelfValue) {
       const position = getShelfPosition(columnIndex, rowIndex, rows, columns);
       setAvailablePosition(position);
     }
@@ -126,6 +147,7 @@ const App: React.FC = () => {
         <div className="counts">
           <p className="occupied">Ocupado: {occupiedCount}</p>
           <p className="available">Disponível: {availableCount}</p>
+          <p className="animated">Guardado: {animatedCount}</p> {/* Display animated count */}
         </div>
       </div>
       <div className="canvas-container">
@@ -152,7 +174,6 @@ const App: React.FC = () => {
                   <AvailablePositionHighlight position={availablePosition} />
                 </group>
               )}
-              {/* Adiciona a borda preta */}
               <mesh
                 position={[
                   (columns - 1) * (shelfSize + spacing) * 0.3,
