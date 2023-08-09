@@ -33,29 +33,44 @@ const getShelfPosition = (x: number, z: number, rows: number, columns: number): 
   ];
 };
 
+const AnimatedPositionHighlight: React.FC<{ position: [number, number, number] }> = ({ position }) => {
+  const ref = useRef<THREE.Mesh>(null);
+
+  useFrame(() => {
+    if (ref.current) {
+      ref.current.position.y = Math.sin(Date.now() * 0.003) * 0.15 + 0.3;
+    }
+  });
+
+  return (
+    <mesh ref={ref} position={position}>
+      <sphereGeometry args={[0.2, 32, 32]} /> 
+      <meshStandardMaterial color={'#5040e0'} />
+    </mesh>
+  );
+};
+
 const Shelf3D: React.FC<ShelfProps> = ({ x, z, occupied, onClick, position }) => {
   const [animationActive, setAnimationActive] = useState(false);
-  const ref = useRef<THREE.Mesh>(null); 
 
   const handleDoubleClick = () => {
     setAnimationActive(!animationActive);
   };
 
   useEffect(() => {
-    if (!animationActive && ref.current) {
-      ref.current.scale.set(1, 1, 1);
+    if (!animationActive) {
+      setAnimationActive(false); 
     }
   }, [animationActive]);
 
   return (
-    <mesh onClick={onClick} onDoubleClick={handleDoubleClick} position={position} ref={ref}>
+    <mesh onClick={onClick} onDoubleClick={handleDoubleClick} position={position}>
       <boxGeometry args={[shelfSize, 0.1, shelfSize]} />
       <meshStandardMaterial color={occupied ? '#ff7675' : '#42cd62'} />
-      {animationActive && <AvailablePositionHighlight position={[0, 0, 0]} />}
+      {animationActive && <AnimatedPositionHighlight position={[0, 0.6, 0]} />} 
     </mesh>
   );
 };
-
 
 const AvailablePositionHighlight: React.FC<{ position: [number, number, number] }> = ({ position }) => {
   const ref = useRef<THREE.Mesh>(null);
@@ -81,8 +96,7 @@ const AvailablePositionHighlight: React.FC<{ position: [number, number, number] 
 
   return (
     <mesh ref={ref} position={position}>
-      <boxGeometry args={[shelfSize, 0.1, shelfSize]} />
-      <meshStandardMaterial color={'#5040e0'} />
+      <boxGeometry args={[0, 0, 0]} />
     </mesh>
   );
 };
@@ -98,11 +112,21 @@ const App: React.FC = () => {
     setWarehouse(newWarehouse);
   };
 
- const [animatedCount, setAnimatedCount] = useState<number>(0);
+  const [animatedCount, setAnimatedCount] = useState<number>(0);
 
-  const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
+  const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
+
+   const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
     const updatedWarehouse = [...warehouse];
     const updatedShelfValue = !updatedWarehouse[rowIndex][columnIndex];
+    const key = `${rowIndex}-${columnIndex}`;
+
+    if (blueBalls[key]) {
+      const updatedBlueBalls = { ...blueBalls };
+      delete updatedBlueBalls[key];
+      setBlueBalls(updatedBlueBalls);
+    }
+
     updatedWarehouse[rowIndex][columnIndex] = updatedShelfValue;
     setWarehouse(updatedWarehouse);
 
@@ -112,6 +136,7 @@ const App: React.FC = () => {
     if (!updatedShelfValue) {
       const position = getShelfPosition(columnIndex, rowIndex, rows, columns);
       setAvailablePosition(position);
+      setBlueBalls({ ...blueBalls, [key]: true });
     }
   };
 
@@ -147,7 +172,7 @@ const App: React.FC = () => {
         <div className="counts">
           <p className="occupied">Ocupado: {occupiedCount}</p>
           <p className="available">Disponível: {availableCount}</p>
-          <p className="animated">Guardado: {animatedCount}</p> {/* Display animated count */}
+          <p className="saved">Guardar: {Object.keys(blueBalls).length}</p> 
         </div>
       </div>
       <div className="canvas-container">

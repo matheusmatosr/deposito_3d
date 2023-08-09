@@ -63,17 +63,29 @@
 .counts {
   text-align: center;
   margin-top: 20px;
+  height: 100px;
+  width: 220px;
+  border-radius: 5px;
+  box-shadow: 2px 0px 5px rgba(0, 0, 0, 0.2);
+  background-color: #f4f5da;
 }
 
 .occupied {
   color: #720000;
   font-weight: bold;
   font-size: 18px;
-  margin: 5px 0;
+  margin: 10px 0;
 }
 
 .available {
   color: #004b05;
+  font-weight: bold;
+  font-size: 18px;
+  margin: 5px 0;
+}
+
+.saved {
+  color: #5040e0;
   font-weight: bold;
   font-size: 18px;
   margin: 5px 0;
