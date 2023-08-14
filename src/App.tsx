@@ -228,10 +228,12 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import './App.css';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { Circle, OrbitControls, Cylinder } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Line } from '@react-three/drei';
+import { Box } from '@react-three/drei';
+import { Box2 } from 'three';
 
 type SelectedBlueBalls = { [key: string]: boolean };
 
@@ -438,6 +440,8 @@ const App: React.FC = () => {
     return points;
   };
   
+  const maxRadius = Math.min(rows, columns) * (shelfSize + spacing) * 0.5;
+  const distanceFromCorner = 0.5;
 
   return (
     <div className="App">
@@ -503,11 +507,21 @@ const App: React.FC = () => {
             </mesh> */}
 
             {/* comentar e descomentar a linha de baixo*/}
-            {/* <Line points={linePoints} color="yellow" lineWidth={10} />  */}
+            <Line points={linePoints} color="yellow" lineWidth={10} /> 
 
             
-            <Line points={generateLinePoints(blueBalls)} color="yellow" lineWidth={10} />
-
+            {/* <Line points={generateLinePoints(blueBalls)} color="yellow" lineWidth={10} /> */}
+            <Cylinder
+    args={[1, 1, 1.01, 32]}
+    scale={.5}
+    position={[
+      (columns - 0.1) * (shelfSize + spacing) - distanceFromCorner,
+      0,
+      (rows - 0.1) * (shelfSize + spacing) - distanceFromCorner,
+    ]} // Define a posição do círculo com base na distância fixa
+  >
+    <meshStandardMaterial color="#000" /> 
+  </Cylinder>
             </group>
             <group position={[0, -2, 0]}>
               {warehouse.map((row, rowIndex) =>
