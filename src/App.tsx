@@ -235,8 +235,8 @@ import { Line } from '@react-three/drei';
 import { Box } from '@react-three/drei';
 import { Box2 } from 'three';
 
-type SelectedBlueBalls = { [key: string]: boolean };
-
+// type SelectedBlueBalls = { [key: string]: boolean };
+type SelectedBlueBalls = { [key: string]: [number, number, number] }; // Correção na tipagem
 
 interface ShelfProps {
   x: number;
@@ -257,13 +257,13 @@ const handleCreateWarehouse = (rows: number, columns: number) => {
 };
 
 const getShelfPosition = (x: number, z: number, rows: number, columns: number): [number, number, number] => {
-  const offsetX = (columns - 1) * (shelfSize + spacing) * 0.5;
-  const offsetZ = (rows - 1) * (shelfSize + spacing) * 0.5;
+  const offsetX = (columns - 0) * (shelfSize + spacing) * 0;
+  const offsetZ = (rows - 0) * (shelfSize + spacing) * 0;
 
   return [
-    (x - columns / 2) * (shelfSize + spacing) + offsetX,
+    (x - columns / 5.5) * (shelfSize + spacing) + offsetX,
     0,
-    (z - rows / 2) * (shelfSize + spacing) + offsetZ,
+    (z - rows / 5.5) * (shelfSize + spacing) + offsetZ,
   ];
 };
 
@@ -310,8 +310,8 @@ const Shelf3D: React.FC<ShelfProps> = ({ x, z, occupied, onClick, position }) =>
       {animationActive && <AnimatedPositionHighlight position={[0, 0.6, 0]} />}
       {selected && (
         <line>
-          <bufferGeometry attach="geometry" {...lineVertices} />
-          <lineBasicMaterial color="yellow" />
+          {/* <bufferGeometry attach="geometry" {...lineVertices} /> */}
+          {/* <lineBasicMaterial color="yellow" /> */}
         </line>
       )}
       <mesh ref={selectedRef} position={position} />
@@ -363,7 +363,8 @@ const App: React.FC = () => {
 
   const [animatedCount, setAnimatedCount] = useState<number>(0);
 
-  const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
+  // const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
+  const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] }>({});
 
    const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
     const updatedWarehouse = [...warehouse];
@@ -385,7 +386,7 @@ const App: React.FC = () => {
     if (!updatedShelfValue) {
       const position = getShelfPosition(columnIndex, rowIndex, rows, columns);
       setAvailablePosition(position);
-      setBlueBalls({ ...blueBalls, [key]: true });
+      setBlueBalls({ ...blueBalls, [key]: position });
     }
   };
 
@@ -393,55 +394,25 @@ const App: React.FC = () => {
   const availableCount = rows * columns - occupiedCount;
 
  
-  const curve = useMemo(() => {
-   
-      return new THREE.CatmullRomCurve3(
-    [
-      // new THREE.Vector3().toArray({blueBalls}),
-      new THREE.Vector3(0,0,.1),
-      new THREE.Vector3(0,0,.2 ),
-      new THREE.Vector3(0, 0,.3),
-      new THREE.Vector3(0, 0,.4),
-      new THREE.Vector3(0, 0,.5),
-      new THREE.Vector3(0, 0,.6),
-      // new THREE.Vector3(-3,0,-30),
-      // new THREE.Vector3(8,7,-9),
-      // new THREE.Vector3(10,0,-10),
-      // new THREE.Vector3(10,0,0),
-      // new THREE.Vector3(0,0,0)
+  
 
-    ],
-    false,
-    "catmullrom",
-     0.5
-      );
-  },[])
+ 
 
-  const linePoints = useMemo(() =>{
-    return curve.getPoints(LINE_NB_POINTS);
-  },[curve]);
-
-  const shape = useMemo(() =>{
-    const shape = new THREE.Shape();
-    shape.moveTo(-2, 23.3);
-    shape.lineTo(-2, 0.2)
-    return shape;
-  },[curve]);
-
-  const generateLinePoints = (selectedBlueBalls: SelectedBlueBalls) => {
-    const points = [];
-    for (const key in selectedBlueBalls) {
-      if (selectedBlueBalls[key]) {
-        const [rowIndex, columnIndex] = key.split('-').map(Number);
-        const position = getShelfPosition(columnIndex, rowIndex, rows, columns);
-        points.push(new THREE.Vector3(position[0], 0.6, position[2]));
+  const generateLinePoints = (blueBalls: SelectedBlueBalls): THREE.Vector3[] => {
+    const points: THREE.Vector3[] = [];
+  
+    for (const key in blueBalls) {
+      if (blueBalls.hasOwnProperty(key)) {
+        const [x, y, z] = blueBalls[key];
+        points.push(new THREE.Vector3(x, y, z));
       }
     }
+  
     return points;
   };
   
-  const maxRadius = Math.min(rows, columns) * (shelfSize + spacing) * 0.5;
-  const distanceFromCorner = 0.5;
+  const maxRadius = Math.min(rows, columns) * (shelfSize + spacing) * 5;
+  const distanceFromCorner = .5;
 
   return (
     <div className="App">
@@ -482,46 +453,35 @@ const App: React.FC = () => {
             <pointLight position={[10, 10, 10]} />
             <OrbitControls />
             <group position-y={-2}>
-            {/* <Line
-            points={linePoints}
-            color={'yellow'}
-            opacity={0}
-            lideWidth={16}
-            /> */}
-            {/* <mesh>
-              <extrudeGeometry
-              args={[
-                shape,
-                {
-                  steps: LINE_NB_POINTS,
-                  bevelEnabled: false,
-                  extrudePath: curve,
-                }
-              ]}
-              />
-              <meshStandardMaterial
-              color={'red'}
-              opacity={10}
-              // transparent
-              />
-            </mesh> */}
+            <group>
+                <mesh>
+                {Object.keys(blueBalls).map((key, index) => {
+                    const [x, y, z] = blueBalls[key]; // Desestruturando as coordenadas x, y e z
+                    return (
+                      <Line 
+                       key={`line-${index}`}
+                       points={[ new THREE.Vector3(5, 0.2, 4),new THREE.Vector3(x, y, z)]}
 
-            {/* comentar e descomentar a linha de baixo*/}
-            <Line points={linePoints} color="yellow" lineWidth={10} /> 
+                       color="yellow" lineWidth={10}
+                       >
+                        <lineBasicMaterial color="yellow" />
+                      </Line>
+                    );
+                  })}
+                </mesh>
+              </group>
 
-            
-            {/* <Line points={generateLinePoints(blueBalls)} color="yellow" lineWidth={10} /> */}
-            <Cylinder
-    args={[1, 1, 1.01, 32]}
-    scale={.5}
-    position={[
-      (columns - 0.1) * (shelfSize + spacing) - distanceFromCorner,
-      0,
-      (rows - 0.1) * (shelfSize + spacing) - distanceFromCorner,
-    ]} // Define a posição do círculo com base na distância fixa
-  >
-    <meshStandardMaterial color="#000" /> 
-  </Cylinder>
+              <Cylinder
+                args={[1, 1, 1.01, 32]}
+                scale={.5}
+                position={[
+                  (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
+                  0,
+                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner,
+                ]} // Define a posição do círculo com base na distância fixa
+              >
+                <meshStandardMaterial color="#000" />
+              </Cylinder>
             </group>
             <group position={[0, -2, 0]}>
               {warehouse.map((row, rowIndex) =>
@@ -536,6 +496,7 @@ const App: React.FC = () => {
                   />
                 ))
               )}
+             
               {availablePosition && (
                 <group>
                   <AvailablePositionHighlight position={availablePosition} />
