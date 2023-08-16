@@ -11,6 +11,7 @@ interface ShelfProps {
   occupied: boolean;
   onClick: () => void;
   position: [number, number, number];
+  status: string; 
 }
 
 const shelfSize = 0.8;
@@ -51,14 +52,13 @@ const AnimatedPositionHighlight: React.FC<{ position: [number, number, number] }
   );
 };
 
-const Shelf3D: React.FC<ShelfProps> = ({ x, z, occupied, onClick, position }) => {
+const Shelf3D: React.FC<ShelfProps> = ({ onClick, position, status }) => {
   const [animationActive, setAnimationActive] = useState(false);
   const [elevated, setElevated] = useState(false);
 
-  const handleDoubleClick = () => {
-    setAnimationActive(!animationActive);
-    setElevated(true);
-  };
+  const handleShelfClick = () => {
+    onClick();
+  }
 
   useEffect(() => {
     if (!animationActive) {
@@ -68,39 +68,10 @@ const Shelf3D: React.FC<ShelfProps> = ({ x, z, occupied, onClick, position }) =>
   }, [animationActive]);
 
   return (
-    <mesh onClick={onClick} onDoubleClick={handleDoubleClick} position={position}>
+    <mesh onClick={handleShelfClick} position={position}>
       <boxGeometry args={[shelfSize, elevated ? 0.7 : 0.7, shelfSize]} />
-      <meshStandardMaterial color={occupied ? '#ff7675' : '#42cd62'} />
+      <meshStandardMaterial color={status==='ocupado' ? '#ff7675' : '#42cd62'} />
       {animationActive && <AnimatedPositionHighlight position={[0, 0.9, 0]} />} 
-    </mesh>
-  );
-};
-
-const AvailablePositionHighlight: React.FC<{ position: [number, number, number] }> = ({ position }) => {
-  const ref = useRef<THREE.Mesh>(null);
-  const [highlighted, setHighlighted] = useState(false);
-
-  useFrame(() => {
-    if (ref.current) {
-      ref.current.rotation.y += 0.01;
-      if (highlighted) {
-        ref.current.scale.x = Math.sin(Date.now() * 0.005) * 0.1 + 1;
-        ref.current.scale.z = Math.sin(Date.now() * 0.005) * 0.1 + 1;
-      }
-    }
-  });
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setHighlighted(!highlighted);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [highlighted]);
-
-  return (
-    <mesh ref={ref} position={position}>
-      <boxGeometry args={[0, 0, 0]} />
     </mesh>
   );
 };
@@ -109,37 +80,42 @@ const App: React.FC = () => {
   const [rows, setRows] = useState<number>(0);
   const [columns, setColumns] = useState<number>(0);
   const [warehouse, setWarehouse] = useState<boolean[][]>([]);
-  const [availablePosition, setAvailablePosition] = useState<[number, number, number] | null>(null);
   const [animatedCount, setAnimatedCount] = useState<number>(0);
   const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
+  const [modalShow, setModalShow] = useState(false);
+  const [selectedShelf, setSelectedShelf] = useState<[number, number] | null>(null);
+
+  const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
+    setSelectedShelf([rowIndex, columnIndex]);
+    setModalShow(true);
+  };
+
+  const handleModalSubmit = (status: string) => {
+    if (selectedShelf) {
+      const [rowIndex, columnIndex] = selectedShelf;
+      const key = `${rowIndex}-${columnIndex}`;
+
+      if (status === "guardar") {
+        const updatedBlueBalls = { ...blueBalls, [key]: true };
+        setBlueBalls(updatedBlueBalls);
+        setAnimatedCount(Object.keys(updatedBlueBalls).length);
+      } else if (blueBalls[key]) {
+        const updatedBlueBalls = { ...blueBalls };
+        delete updatedBlueBalls[key];
+        setBlueBalls(updatedBlueBalls);
+        setAnimatedCount(Object.keys(updatedBlueBalls).length);
+      }
+
+      const updatedWarehouse = [...warehouse];
+      updatedWarehouse[rowIndex][columnIndex] = status === "ocupado";
+      setWarehouse(updatedWarehouse);
+      setModalShow(false);
+    }
+  };
 
   const handleCreateWarehouseAndSetState = () => {
     const newWarehouse = handleCreateWarehouse(rows, columns);
     setWarehouse(newWarehouse);
-  };
-
-  const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
-    const updatedWarehouse = [...warehouse];
-    const updatedShelfValue = !updatedWarehouse[rowIndex][columnIndex];
-    const key = `${rowIndex}-${columnIndex}`;
-
-    if (blueBalls[key]) {
-      const updatedBlueBalls = { ...blueBalls };
-      delete updatedBlueBalls[key];
-      setBlueBalls(updatedBlueBalls);
-    }
-
-    updatedWarehouse[rowIndex][columnIndex] = updatedShelfValue;
-    setWarehouse(updatedWarehouse);
-
-    const animatedShelfCount = updatedWarehouse.flat().filter((animated) => animated).length;
-    setAnimatedCount(animatedShelfCount);
-
-    if (!updatedShelfValue) {
-      const position = getShelfPosition(columnIndex, rowIndex, rows, columns);
-      setAvailablePosition(position);
-      setBlueBalls({ ...blueBalls, [key]: true });
-    }
   };
 
   const occupiedCount = warehouse.flat().filter((occupied) => occupied).length;
@@ -193,14 +169,27 @@ const App: React.FC = () => {
                     occupied={occupied}
                     onClick={() => handleToggleShelf(rowIndex, columnIndex)}
                     position={getShelfPosition(columnIndex, rowIndex, rows, columns)}
+                    status={occupied ? "ocupado" : "disponível"} 
                   />
                 ))
               )}
-              {availablePosition && (
-                <group>
-                  <AvailablePositionHighlight position={availablePosition} />
-                </group>
-              )}
+              <group>
+                {Object.keys(blueBalls).map((key) => {
+                  const [rowIndex, columnIndex] = key.split("-").map(Number);
+                  const shelfPosition = getShelfPosition(columnIndex, rowIndex, rows, columns);
+                  const ballPosition: [number, number, number] = [
+                    shelfPosition[0],
+                    shelfPosition[1] + 1.0, 
+                    shelfPosition[2],
+                  ];
+                  return (
+                    <AnimatedPositionHighlight
+                      key={key}
+                      position={ballPosition}
+                    />
+                  );
+                })}
+              </group>
               <mesh
                 position={[
                   (columns - 1) * (shelfSize + spacing) * 0.25,
@@ -220,6 +209,11 @@ const App: React.FC = () => {
           </Canvas>
         )}
       </div>
+      <WarehouseModal
+        show={modalShow}
+        onHide={() => setModalShow(false)}
+        onSubmit={handleModalSubmit}
+      />
     </div>
   );
 };
