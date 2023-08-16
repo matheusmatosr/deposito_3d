@@ -3,6 +3,7 @@ import './App.css';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
+import WarehouseModal from './components/WarehouseModal';
 
 interface ShelfProps {
   x: number;
@@ -13,7 +14,7 @@ interface ShelfProps {
 }
 
 const shelfSize = 0.8;
-const spacing = 0.2;
+const spacing = 0.35;
 
 const handleCreateWarehouse = (rows: number, columns: number) => {
   const newWarehouse: boolean[][] = Array.from({ length: rows }, () =>
@@ -52,22 +53,25 @@ const AnimatedPositionHighlight: React.FC<{ position: [number, number, number] }
 
 const Shelf3D: React.FC<ShelfProps> = ({ x, z, occupied, onClick, position }) => {
   const [animationActive, setAnimationActive] = useState(false);
+  const [elevated, setElevated] = useState(false);
 
   const handleDoubleClick = () => {
     setAnimationActive(!animationActive);
+    setElevated(true);
   };
 
   useEffect(() => {
     if (!animationActive) {
-      setAnimationActive(false); 
+      setAnimationActive(false);
+      setElevated(false); 
     }
   }, [animationActive]);
 
   return (
     <mesh onClick={onClick} onDoubleClick={handleDoubleClick} position={position}>
-      <boxGeometry args={[shelfSize, 0.1, shelfSize]} />
+      <boxGeometry args={[shelfSize, elevated ? 0.7 : 0.7, shelfSize]} />
       <meshStandardMaterial color={occupied ? '#ff7675' : '#42cd62'} />
-      {animationActive && <AnimatedPositionHighlight position={[0, 0.6, 0]} />} 
+      {animationActive && <AnimatedPositionHighlight position={[0, 0.9, 0]} />} 
     </mesh>
   );
 };
@@ -106,17 +110,15 @@ const App: React.FC = () => {
   const [columns, setColumns] = useState<number>(0);
   const [warehouse, setWarehouse] = useState<boolean[][]>([]);
   const [availablePosition, setAvailablePosition] = useState<[number, number, number] | null>(null);
+  const [animatedCount, setAnimatedCount] = useState<number>(0);
+  const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
 
   const handleCreateWarehouseAndSetState = () => {
     const newWarehouse = handleCreateWarehouse(rows, columns);
     setWarehouse(newWarehouse);
   };
 
-  const [animatedCount, setAnimatedCount] = useState<number>(0);
-
-  const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
-
-   const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
+  const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
     const updatedWarehouse = [...warehouse];
     const updatedShelfValue = !updatedWarehouse[rowIndex][columnIndex];
     const key = `${rowIndex}-${columnIndex}`;
@@ -177,11 +179,11 @@ const App: React.FC = () => {
       </div>
       <div className="canvas-container">
         {rows > 0 && columns > 0 && (
-          <Canvas camera={{ position: [columns * 1.5, 5, rows * 1.5], fov: 45 }}>
+          <Canvas camera={{ position: [columns * 1.5, 8, rows * 1.5], fov: 60 }}>
             <ambientLight intensity={0.5} />
             <pointLight position={[10, 10, 10]} />
             <OrbitControls />
-            <group position={[0, 0, 0]}>
+            <group position={[0, 2, 0]}>
               {warehouse.map((row, rowIndex) =>
                 row.map((occupied, columnIndex) => (
                   <Shelf3D
@@ -201,9 +203,9 @@ const App: React.FC = () => {
               )}
               <mesh
                 position={[
-                  (columns - 1) * (shelfSize + spacing) * 0.3,
-                  -0.05,
-                  (rows - 1) * (shelfSize + spacing) * 0.3,
+                  (columns - 1) * (shelfSize + spacing) * 0.25,
+                  -0.4,
+                  (rows - 1) * (shelfSize + spacing) * 0.25,
                 ]}
                 scale={[
                   columns * (shelfSize + spacing) + spacing,
@@ -211,7 +213,7 @@ const App: React.FC = () => {
                   rows * (shelfSize + spacing) + spacing,
                 ]}
               >
-                <boxGeometry args={[1, 1, 1]} />
+                <boxGeometry args={[1.5, 1, 1.5]} />
                 <meshStandardMaterial color="black" transparent opacity={0.5} />
               </mesh>
             </group>
