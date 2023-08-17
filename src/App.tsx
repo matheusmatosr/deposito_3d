@@ -1,18 +1,20 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import './App.css';
 import { Canvas } from '@react-three/fiber';
+
 import { useFrame, extend } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Box, Text, OrbitControls, Line, } from '@react-three/drei';
 
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader'
-
+import WarehouseModal from './components/WarehouseModal';
 
 extend({ TextGeometry })
 
 // type SelectedBlueBalls = { [key: string]: boolean };
 type SelectedBlueBalls = { [key: string]: [number, number, number] }; // Correção na tipagem
+
 
 interface ShelfProps {
   x: number;
@@ -20,10 +22,11 @@ interface ShelfProps {
   occupied: boolean;
   onClick: () => void;
   position: [number, number, number];
+  status: string; 
 }
 
 const shelfSize = 0.8;
-const spacing = 0.2;
+const spacing = 0.35;
 
 const handleCreateWarehouse = (rows: number, columns: number) => {
   const newWarehouse: boolean[][] = Array.from({ length: rows }, () =>
@@ -60,10 +63,11 @@ const AnimatedPositionHighlight: React.FC<{ position: [number, number, number] }
   );
 };
 
-const Shelf3D: React.FC<ShelfProps> = ({ x, z, occupied, onClick, position }) => {
+const Shelf3D: React.FC<ShelfProps> = ({ onClick, position, status }) => {
   const [animationActive, setAnimationActive] = useState(false);
   const [selected, setSelected] = useState(false);
   const selectedRef = useRef<THREE.Mesh>(null);
+  const [elevated, setElevated] = useState(false);
 
   const lineVertices = useMemo(() => {
     return [new THREE.Vector3(0, 0.6, 0), selectedRef.current?.position || new THREE.Vector3()];
@@ -74,17 +78,23 @@ const Shelf3D: React.FC<ShelfProps> = ({ x, z, occupied, onClick, position }) =>
     setSelected(!selected);
   };
 
+  const handleShelfClick = () => {
+    onClick();
+  }
+
   useEffect(() => {
     if (!animationActive) {
       setAnimationActive(false);
+      setElevated(false); 
+      setSelected(!selected);
     }
   }, [animationActive]);
 
   return (
-    <mesh onClick={onClick} onDoubleClick={handleDoubleClick} position={position}>
-      <boxGeometry args={[shelfSize, 0.1, shelfSize]} />
-      <meshStandardMaterial color={occupied ? '#ff7675' : '#42cd62'} />
-      {animationActive && <AnimatedPositionHighlight position={[0, 0.6, 0]} />}
+    <mesh onClick={handleShelfClick} position={position}>
+      <boxGeometry args={[shelfSize, elevated ? 0.7 : 0.7, shelfSize]} />
+      <meshStandardMaterial color={status==='ocupado' ? '#ff7675' : '#42cd62'} />
+      {animationActive && <AnimatedPositionHighlight position={[0, 0.9, 0]} />} 
       {selected && (
         <line>
           {/* <bufferGeometry attach="geometry" {...lineVertices} /> */}
@@ -125,29 +135,57 @@ const AvailablePositionHighlight: React.FC<{ position: [number, number, number] 
   );
 };
 
-
 const App: React.FC = () => {
   const [rows, setRows] = useState<number>(0);
   const [columns, setColumns] = useState<number>(0);
   const [warehouse, setWarehouse] = useState<boolean[][]>([]);
   const [availablePosition, setAvailablePosition] = useState<[number, number, number] | null>(null);
   const [selected, setSelected] = useState<SelectedBlueBalls>({});
+  const [animatedCount, setAnimatedCount] = useState<number>(0);
+  const [modalShow, setModalShow] = useState(false);
+  const [selectedShelf, setSelectedShelf] = useState<[number, number] | null>(null);
+  
+  // const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
+  // const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] }>({});
+  const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] | boolean }>({});
+  
+  const font = new FontLoader();
+
+  const handleModalSubmit = (status: string) => {
+    if (selectedShelf) {
+      const [rowIndex, columnIndex] = selectedShelf;
+      const key = `${rowIndex}-${columnIndex}`;
+
+      if (status === "guardar") {
+        const updatedBlueBalls = { ...blueBalls, [key]: true };
+        setBlueBalls(updatedBlueBalls);
+        setAnimatedCount(Object.keys(updatedBlueBalls).length);
+      } else if (blueBalls[key]) {
+        const updatedBlueBalls = { ...blueBalls };
+        delete updatedBlueBalls[key];
+        setBlueBalls(updatedBlueBalls);
+        setAnimatedCount(Object.keys(updatedBlueBalls).length);
+      }
+
+      const updatedWarehouse = [...warehouse];
+      updatedWarehouse[rowIndex][columnIndex] = status === "ocupado";
+      setWarehouse(updatedWarehouse);
+      setModalShow(false);
+    }
+  };
+
   const handleCreateWarehouseAndSetState = () => {
     const newWarehouse = handleCreateWarehouse(rows, columns);
     setWarehouse(newWarehouse);
   };
 
-  const font = new FontLoader();
-
-  const [animatedCount, setAnimatedCount] = useState<number>(0);
-
-  // const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
-  const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] }>({});
-
   const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
     const updatedWarehouse = [...warehouse];
     const updatedShelfValue = !updatedWarehouse[rowIndex][columnIndex];
     const key = `${rowIndex}-${columnIndex}`;
+
+    setSelectedShelf([rowIndex, columnIndex]);
+    setModalShow(true);
 
     if (blueBalls[key]) {
       const updatedBlueBalls = { ...blueBalls };
@@ -171,8 +209,6 @@ const App: React.FC = () => {
   const occupiedCount = warehouse.flat().filter((occupied) => occupied).length;
   const availableCount = rows * columns - occupiedCount;
   const distanceFromCorner = .5;
-
- 
 
   return (
     <div className="App">
@@ -208,17 +244,19 @@ const App: React.FC = () => {
       </div>
       <div className="canvas-container">
         {rows > 0 && columns > 0 && (
-          <Canvas camera={{ position: [columns * 1.5, 5, rows * 1.5], fov: 45 }}>
+          <Canvas camera={{ position: [columns * 1.5, 8, rows * 1.5], fov: 60 }}>
             <ambientLight intensity={0.5} />
             <pointLight position={[10, 10, 10]} />
             <OrbitControls />
             <group position-y={-2}>
               <group>
                 <mesh>
-                  {Object.keys(blueBalls).length > 0 && (
-                    <mesh>
-                      {Object.keys(blueBalls).map((key, index) => {
-                        const [x, y, z] = blueBalls[key];
+                {Object.keys(blueBalls).length > 0 && (
+                  <mesh>
+                    {Object.keys(blueBalls).map((key, index) => {
+                      const value = blueBalls[key];
+                      if (Array.isArray(value)) {
+                        const [x, y, z] = value;
                         return (
                           <Line
                             key={`line-${index}`}
@@ -235,10 +273,11 @@ const App: React.FC = () => {
                           >
                             <lineBasicMaterial color="yellow" />
                           </Line>
-                          
                         );
-                      })}
-                    </mesh>
+                      }
+                      return null; 
+                    })}
+                  </mesh>
                   )}
                 </mesh>
               </group>
@@ -254,7 +293,6 @@ const App: React.FC = () => {
                 <meshStandardMaterial color="#000" />
               </Box>
               <Text
-             
                 position={[
                   (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
                   0.6,
@@ -266,11 +304,9 @@ const App: React.FC = () => {
                 color="red"
                 anchorX="center"
                 anchorY="middle"
-                
               >
                 ENTRADA
               </Text>
-
             </group>
             <group position={[0, -2, 0]}>
               {warehouse.map((row, rowIndex) =>
@@ -282,20 +318,37 @@ const App: React.FC = () => {
                     occupied={occupied}
                     onClick={() => handleToggleShelf(rowIndex, columnIndex)}
                     position={getShelfPosition(columnIndex, rowIndex, rows, columns)}
+                    status={occupied ? "ocupado" : "disponível"} 
                   />
                 ))
               )}
-
               {availablePosition && (
                 <group>
                   <AvailablePositionHighlight position={availablePosition} />
                 </group>
               )}
+              <group>
+                {Object.keys(blueBalls).map((key) => {
+                  const [rowIndex, columnIndex] = key.split("-").map(Number);
+                  const shelfPosition = getShelfPosition(columnIndex, rowIndex, rows, columns);
+                  const ballPosition: [number, number, number] = [
+                    shelfPosition[0],
+                    shelfPosition[1] + 1.0, 
+                    shelfPosition[2],
+                  ];
+                  return (
+                    <AnimatedPositionHighlight
+                      key={key}
+                      position={ballPosition}
+                    />
+                  );
+                })}
+              </group>
               <mesh
                 position={[
-                  (columns - 1) * (shelfSize + spacing) * 0.3,
-                  -0.05,
-                  (rows - 1) * (shelfSize + spacing) * 0.3,
+                  (columns - 1) * (shelfSize + spacing) * 0.25,
+                  -0.4,
+                  (rows - 1) * (shelfSize + spacing) * 0.25,
                 ]}
                 scale={[
                   columns * (shelfSize + spacing) + spacing,
@@ -303,13 +356,18 @@ const App: React.FC = () => {
                   rows * (shelfSize + spacing) + spacing,
                 ]}
               >
-                <boxGeometry args={[1.3, 1, 1]} />
+                <boxGeometry args={[1.5, 1, 1.5]} />
                 <meshStandardMaterial color="black" transparent opacity={0.5} />
               </mesh>
             </group>
           </Canvas>
         )}
       </div>
+      <WarehouseModal
+        show={modalShow}
+        onHide={() => setModalShow(false)}
+        onSubmit={handleModalSubmit}
+      />
     </div>
   );
 };
