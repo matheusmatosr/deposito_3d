@@ -4,6 +4,8 @@ import { Canvas } from '@react-three/fiber';
 
 import { useFrame, extend } from '@react-three/fiber';
 import * as THREE from 'three';
+import { CatmullRomCurve3 } from 'three';
+
 import { Box, Text, OrbitControls, Line, } from '@react-three/drei';
 
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry'
@@ -51,7 +53,7 @@ const AnimatedPositionHighlight: React.FC<{ position: [number, number, number] }
 
   useFrame(() => {
     if (ref.current) {
-      ref.current.position.y = Math.sin(Date.now() * 0.003) * 0.15 + 0.3;
+      ref.current.position.y = Math.sin(Date.now() * 0.003) * 0.35 + 0.3;
     }
   });
 
@@ -92,7 +94,7 @@ const Shelf3D: React.FC<ShelfProps> = ({ onClick, position, status }) => {
 
   return (
     <mesh onClick={handleShelfClick} position={position}>
-      <boxGeometry args={[shelfSize, elevated ? 0.7 : 0.7, shelfSize]} />
+      <boxGeometry args={[shelfSize, elevated ? 1.7 : 0.7, shelfSize]} />
       <meshStandardMaterial color={status==='ocupado' ? '#ff7675' : '#42cd62'} />
       {animationActive && <AnimatedPositionHighlight position={[0, 0.9, 0]} />} 
       {selected && (
@@ -210,6 +212,8 @@ const App: React.FC = () => {
   const availableCount = rows * columns - occupiedCount;
   const distanceFromCorner = .5;
 
+  
+
   return (
     <div className="App">
       <div className="sidebar">
@@ -282,20 +286,20 @@ const App: React.FC = () => {
                 </mesh>
               </group>
               <Box
-                args={[1.5, 1, 2.5, 32]}
+                args={[1.5, 2, 2.5, 32]}
                 scale={.5}
                 position={[
                   (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
                   0.2,
                   (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner,
-                ]} // Define a posição do círculo com base na distância fixa
+                ]} // Define a posição do box com base na distância fixa
               >
                 <meshStandardMaterial color="#000" />
               </Box>
               <Text
                 position={[
                   (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
-                  0.6,
+                  1.2,
                   (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner + 0.1,
                 ]}
                 scale={[1, 1, 10]}
@@ -303,7 +307,7 @@ const App: React.FC = () => {
                 fontSize={0.5}
                 color="red"
                 anchorX="center"
-                anchorY="middle"
+                anchorY="top"
               >
                 ENTRADA
               </Text>
@@ -334,9 +338,9 @@ const App: React.FC = () => {
                   const ballPosition: [number, number, number] = [
                     shelfPosition[0],
                     shelfPosition[1] + 1.0, 
-                    shelfPosition[2],
+                    shelfPosition[2] ,
                   ];
-                  return (
+                  return (                  
                     <AnimatedPositionHighlight
                       key={key}
                       position={ballPosition}
