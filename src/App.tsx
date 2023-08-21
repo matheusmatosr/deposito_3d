@@ -216,7 +216,7 @@ const App: React.FC = () => {
   const distanceFromCorner = .5;
 
   
-
+ //Alerta modo Landscape
   useEffect(() => {
     const checkOrientation = () => {
       setIsPortrait(window.innerWidth < window.innerHeight);
@@ -231,13 +231,13 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isPortrait) {
      
-      alert('Gire o dispositivo para o modo paisagem.');
+      alert('GIRE O DISPOSITIVO PARA MELHOR VISUALIZAÇÃO.');
     }
   }, [isPortrait]);
 
 
   return (
-    <div className='App'>
+    <div className={`App ${isPortrait ? "landscape" : "portrait"}`}>
       <div className="sidebar">
         <div className="inputs">
           <div className="input-group">
