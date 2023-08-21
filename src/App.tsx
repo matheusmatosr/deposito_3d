@@ -24,7 +24,7 @@ interface ShelfProps {
   occupied: boolean;
   onClick: () => void;
   position: [number, number, number];
-  status: string; 
+  status: string;
 }
 
 const shelfSize = 0.8;
@@ -87,7 +87,7 @@ const Shelf3D: React.FC<ShelfProps> = ({ onClick, position, status }) => {
   useEffect(() => {
     if (!animationActive) {
       setAnimationActive(false);
-      setElevated(false); 
+      setElevated(false);
       setSelected(!selected);
     }
   }, [animationActive]);
@@ -95,8 +95,8 @@ const Shelf3D: React.FC<ShelfProps> = ({ onClick, position, status }) => {
   return (
     <mesh onClick={handleShelfClick} position={position}>
       <boxGeometry args={[shelfSize, elevated ? 1.7 : 0.7, shelfSize]} />
-      <meshStandardMaterial color={status==='ocupado' ? '#ff7675' : '#42cd62'} />
-      {animationActive && <AnimatedPositionHighlight position={[0, 0.9, 0]} />} 
+      <meshStandardMaterial color={status === 'ocupado' ? '#ff7675' : '#42cd62'} />
+      {animationActive && <AnimatedPositionHighlight position={[0, 0.9, 0]} />}
       {selected && (
         <line>
           {/* <bufferGeometry attach="geometry" {...lineVertices} /> */}
@@ -146,12 +146,15 @@ const App: React.FC = () => {
   const [animatedCount, setAnimatedCount] = useState<number>(0);
   const [modalShow, setModalShow] = useState(false);
   const [selectedShelf, setSelectedShelf] = useState<[number, number] | null>(null);
-  
+  const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
+  const [isPortrait, setIsPortrait] = useState(window.innerWidth < window.innerHeight);
+
+
   // const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
   // const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] }>({});
   const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] | boolean }>({});
+
   
-  const font = new FontLoader();
 
   const handleModalSubmit = (status: string) => {
     if (selectedShelf) {
@@ -204,7 +207,7 @@ const App: React.FC = () => {
     if (!updatedShelfValue) {
       const position = getShelfPosition(columnIndex, rowIndex, rows, columns);
       setAvailablePosition(position);
-      setBlueBalls({ ...blueBalls, [key]: position });
+      setBlueBalls({ ...blueBalls, [key]: position }); 
     }
   };
 
@@ -214,8 +217,27 @@ const App: React.FC = () => {
 
   
 
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsPortrait(window.innerWidth < window.innerHeight);
+    };
+
+    window.addEventListener('resize', checkOrientation);
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isPortrait) {
+     
+      alert('Gire o dispositivo para o modo paisagem.');
+    }
+  }, [isPortrait]);
+
+
   return (
-    <div className="App">
+    <div className='App'>
       <div className="sidebar">
         <div className="inputs">
           <div className="input-group">
@@ -255,34 +277,73 @@ const App: React.FC = () => {
             <group position-y={-2}>
               <group>
                 <mesh>
-                {Object.keys(blueBalls).length > 0 && (
-                  <mesh>
-                    {Object.keys(blueBalls).map((key, index) => {
-                      const value = blueBalls[key];
-                      if (Array.isArray(value)) {
-                        const [x, y, z] = value;
-                        return (
-                          <Line
-                            key={`line-${index}`}
-                            points={[
-                              new THREE.Vector3(
+                  {Object.keys(blueBalls).length > 0 && (
+                    <mesh>
+                      {Object.keys(blueBalls).length > 0 && (
+                        <mesh>
+                          {Object.keys(blueBalls).map((key, index) => {
+                            const value = blueBalls[key];
+                            if (Array.isArray(value)) {
+                              const [x, y, z] = value;
+                              const lineStartPosition = [
                                 (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
                                 0.6,
-                                (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
-                              ),
-                              new THREE.Vector3(x, y, z),
-                            ]}
-                            color="yellow"
-                            lineWidth={7}
-                          >
-                            <lineBasicMaterial color="yellow" />
-                          </Line>
-                        );
-                      }
-                      return null; 
-                    })}
-                  </mesh>
+                                (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner,
+                              ];
+
+                              const availablePositions = [];
+                              for (let i = 1; i < availableCount + 1; i++) {
+                                const t = i / (availableCount + 1);
+                                const ix = THREE.MathUtils.lerp(
+                                  lineStartPosition[0],
+                                  x,
+                                  t
+                                );
+                                const iy = THREE.MathUtils.lerp(
+                                  lineStartPosition[1],
+                                  y,
+                                  t
+                                );
+                                const iz = THREE.MathUtils.lerp(
+                                  lineStartPosition[2],
+                                  z,
+                                  t
+                                );
+                                availablePositions.push([ix, iy, iz]);
+                              }
+
+                              const points = [];
+                              for (let i = 0; i < availablePositions.length; i++) {
+                                const [ix, iy, iz] = availablePositions[i];
+                                const intersectsBlueBall = Object.values(blueBalls).some(
+                                  (blueBall) =>
+                                    Array.isArray(blueBall) &&
+                                    ix === blueBall[0] &&
+                                    iz === blueBall[2]
+                                );
+                                if (!intersectsBlueBall) {
+                                  points.push(new THREE.Vector3(ix, iy, iz));
+                                }
+                              }
+
+                              return (
+                                <Line
+                                  key={`line-${index}`}
+                                  points={points}
+                                  color="yellow"
+                                  lineWidth={7}
+                                >
+                                  <lineBasicMaterial color="yellow" />
+                                </Line>
+                              );
+                            }
+                            return null;
+                          })}
+                        </mesh>
+                      )}
+                    </mesh>
                   )}
+
                 </mesh>
               </group>
               <Box
@@ -322,7 +383,7 @@ const App: React.FC = () => {
                     occupied={occupied}
                     onClick={() => handleToggleShelf(rowIndex, columnIndex)}
                     position={getShelfPosition(columnIndex, rowIndex, rows, columns)}
-                    status={occupied ? "ocupado" : "disponível"} 
+                    status={occupied ? "ocupado" : "disponível"}
                   />
                 ))
               )}
@@ -337,10 +398,10 @@ const App: React.FC = () => {
                   const shelfPosition = getShelfPosition(columnIndex, rowIndex, rows, columns);
                   const ballPosition: [number, number, number] = [
                     shelfPosition[0],
-                    shelfPosition[1] + 1.0, 
-                    shelfPosition[2] ,
+                    shelfPosition[1] + 1.0,
+                    shelfPosition[2],
                   ];
-                  return (                  
+                  return (
                     <AnimatedPositionHighlight
                       key={key}
                       position={ballPosition}

@@ -90,3 +90,22 @@
   font-size: 18px;
   margin: 5px 0;
 }
+
+@media  screen 
+ 
+and (orientation : landscape) 
+{
+ 
+
+  /* .sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    width: 100px;
+    background-color: #eaec9c;
+    padding: 20px;
+    box-shadow: 2px 0px 5px rgba(0, 0, 0, 0.2);
+  } */
+
+}
