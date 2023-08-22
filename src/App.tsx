@@ -13,8 +13,12 @@ import WarehouseModal from './components/WarehouseModal';
 extend({ TextGeometry })
 
 // type SelectedBlueBalls = { [key: string]: boolean };
-type SelectedBlueBalls = { [key: string]: [number, number, number] }; // Correção na tipagem
+type SelectedBlueBalls = { [key: string]: [number, number, number] | boolean }; // Correção na tipagem
 
+interface AnimatedPositionHighlightProps {
+  position: [number, number, number];
+  color: [number, number, number];
+}
 
 interface ShelfProps {
   x: number;
@@ -46,11 +50,12 @@ const getShelfPosition = (x: number, z: number, rows: number, columns: number): 
   ];
 };
 
-const AnimatedPositionHighlight: React.FC<{ position: [number, number, number] }> = ({ position }) => {
+const AnimatedPositionHighlight: React.FC<AnimatedPositionHighlightProps> = ({ position, color }) => {
   const ref = useRef<THREE.Mesh>(null);
 
   useFrame(() => {
     if (ref.current) {
+      ref.current.rotation.y += 0.01;
       ref.current.position.y = Math.sin(Date.now() * 0.003) * 0.15 + 0.3;
     }
   });
@@ -58,7 +63,7 @@ const AnimatedPositionHighlight: React.FC<{ position: [number, number, number] }
   return (
     <mesh ref={ref} position={position}>
       <sphereGeometry args={[0.2, 32, 32]} />
-      <meshStandardMaterial color={'#5040e0'} />
+      <meshStandardMaterial color={new THREE.Color(`rgb(${color[0]}, ${color[1]}, ${color[2]})`)} />
     </mesh>
   );
 };
@@ -73,32 +78,36 @@ const Shelf3D: React.FC<ShelfProps> = ({ onClick, position, status }) => {
     return [new THREE.Vector3(0, 0.6, 0), selectedRef.current?.position || new THREE.Vector3()];
   }, [selected]);
 
-  const handleDoubleClick = () => {
-    setAnimationActive(!animationActive);
-    setSelected(!selected);
-  };
-
   const handleShelfClick = () => {
     onClick();
   }
 
   useEffect(() => {
-    if (!animationActive) {
+    if (status === "guardar") {
+      setElevated(true);
+      setAnimationActive(true);
+      setSelected(true);
+    } else {
+      setElevated(false);
       setAnimationActive(false);
-      setElevated(false); 
-      setSelected(!selected);
     }
-  }, [animationActive]);
+  }, [status]);
 
   return (
     <mesh onClick={handleShelfClick} position={position}>
       <boxGeometry args={[shelfSize, elevated ? 0.7 : 0.7, shelfSize]} />
-      <meshStandardMaterial color={status==='ocupado' ? '#ff7675' : '#42cd62'} />
-      {animationActive && <AnimatedPositionHighlight position={[0, 0.9, 0]} />} 
+      <meshStandardMaterial color={status === 'ocupado' ? '#ff7675' : '#42cd62'} />
+      {animationActive && (
+        <AnimatedPositionHighlight
+          position={[0, 0.9, 0]}
+          color={status === 'ocupado' ? [255, 118, 117] : [66, 205, 98]}
+        />
+      )}
+
       {selected && (
         <line>
-          {/* <bufferGeometry attach="geometry" {...lineVertices} /> */}
-          {/* <lineBasicMaterial color="yellow" /> */}
+          <bufferGeometry attach="geometry" {...lineVertices} />
+          <lineBasicMaterial color="yellow" />
         </line>
       )}
       <mesh ref={selectedRef} position={position} />
@@ -140,70 +149,53 @@ const App: React.FC = () => {
   const [columns, setColumns] = useState<number>(0);
   const [warehouse, setWarehouse] = useState<boolean[][]>([]);
   const [availablePosition, setAvailablePosition] = useState<[number, number, number] | null>(null);
-  const [selected, setSelected] = useState<SelectedBlueBalls>({});
   const [animatedCount, setAnimatedCount] = useState<number>(0);
   const [modalShow, setModalShow] = useState(false);
   const [selectedShelf, setSelectedShelf] = useState<[number, number] | null>(null);
-  
-  // const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
-  // const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] }>({});
   const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] | boolean }>({});
+  const [animateLine, setAnimateLine] = useState(false);
   
-  const font = new FontLoader();
-
   const handleModalSubmit = (status: string) => {
     if (selectedShelf) {
       const [rowIndex, columnIndex] = selectedShelf;
       const key = `${rowIndex}-${columnIndex}`;
-
+  
       if (status === "guardar") {
+        const shelfPosition = getShelfPosition(columnIndex, rowIndex, rows, columns);
         const updatedBlueBalls = { ...blueBalls, [key]: true };
+  
+        setAvailablePosition(shelfPosition);
         setBlueBalls(updatedBlueBalls);
         setAnimatedCount(Object.keys(updatedBlueBalls).length);
-      } else if (blueBalls[key]) {
+        setSelectedShelf(null);
+        setAnimateLine(true);
+
+      } else if (status === "ocupado") {
         const updatedBlueBalls = { ...blueBalls };
         delete updatedBlueBalls[key];
+
         setBlueBalls(updatedBlueBalls);
         setAnimatedCount(Object.keys(updatedBlueBalls).length);
+        setAnimateLine(false);
       }
-
+  
       const updatedWarehouse = [...warehouse];
       updatedWarehouse[rowIndex][columnIndex] = status === "ocupado";
+      
       setWarehouse(updatedWarehouse);
       setModalShow(false);
     }
   };
-
+  
   const handleCreateWarehouseAndSetState = () => {
     const newWarehouse = handleCreateWarehouse(rows, columns);
     setWarehouse(newWarehouse);
+    setBlueBalls({}); 
   };
-
+  
   const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
-    const updatedWarehouse = [...warehouse];
-    const updatedShelfValue = !updatedWarehouse[rowIndex][columnIndex];
-    const key = `${rowIndex}-${columnIndex}`;
-
     setSelectedShelf([rowIndex, columnIndex]);
     setModalShow(true);
-
-    if (blueBalls[key]) {
-      const updatedBlueBalls = { ...blueBalls };
-      delete updatedBlueBalls[key];
-      setBlueBalls(updatedBlueBalls);
-    }
-
-    updatedWarehouse[rowIndex][columnIndex] = updatedShelfValue;
-    setWarehouse(updatedWarehouse);
-
-    const animatedShelfCount = updatedWarehouse.flat().filter((animated) => animated).length;
-    setAnimatedCount(animatedShelfCount);
-
-    if (!updatedShelfValue) {
-      const position = getShelfPosition(columnIndex, rowIndex, rows, columns);
-      setAvailablePosition(position);
-      setBlueBalls({ ...blueBalls, [key]: position });
-    }
   };
 
   const occupiedCount = warehouse.flat().filter((occupied) => occupied).length;
@@ -251,33 +243,33 @@ const App: React.FC = () => {
             <group position-y={-2}>
               <group>
                 <mesh>
-                {Object.keys(blueBalls).length > 0 && (
-                  <mesh>
-                    {Object.keys(blueBalls).map((key, index) => {
-                      const value = blueBalls[key];
-                      if (Array.isArray(value)) {
-                        const [x, y, z] = value;
-                        return (
-                          <Line
-                            key={`line-${index}`}
-                            points={[
-                              new THREE.Vector3(
-                                (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
-                                0.6,
-                                (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
-                              ),
-                              new THREE.Vector3(x, y, z),
-                            ]}
-                            color="yellow"
-                            lineWidth={7}
-                          >
-                            <lineBasicMaterial color="yellow" />
-                          </Line>
-                        );
-                      }
-                      return null; 
-                    })}
-                  </mesh>
+                  {Object.keys(blueBalls).length > 0 && (
+                    <mesh>
+                      {Object.keys(blueBalls).map((key, index) => {
+                        const value = blueBalls[key];
+                        if (Array.isArray(value)) {
+                          const [x, y, z] = value;
+                          return (
+                            <Line
+                              key={`line-${index}`}
+                              points={[
+                                new THREE.Vector3(
+                                  (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
+                                  0.6,
+                                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
+                                ),
+                                new THREE.Vector3(x, y, z),
+                              ]}
+                              color="yellow"
+                              lineWidth={7}
+                            >
+                              <lineBasicMaterial color="yellow" />
+                            </Line>
+                          );
+                        }
+                        return null; 
+                      })}
+                    </mesh>
                   )}
                 </mesh>
               </group>
@@ -333,17 +325,36 @@ const App: React.FC = () => {
                   const shelfPosition = getShelfPosition(columnIndex, rowIndex, rows, columns);
                   const ballPosition: [number, number, number] = [
                     shelfPosition[0],
-                    shelfPosition[1] + 1.0, 
+                    shelfPosition[1] + 1.0,
                     shelfPosition[2],
                   ];
+                  const ballColor = blueBalls[key];
+
                   return (
                     <AnimatedPositionHighlight
                       key={key}
                       position={ballPosition}
+                      color={Array.isArray(ballColor) ? ballColor : [0, 121, 255]} 
                     />
                   );
                 })}
               </group>
+              {animateLine && (
+                <Line
+                  points={[
+                    new THREE.Vector3(
+                      (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
+                      0.6,
+                      (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
+                    ),
+                    availablePosition || new THREE.Vector3(), 
+                  ]}
+                  color="yellow"
+                  lineWidth={7}
+                >
+                  <lineBasicMaterial color="yellow" />
+                </Line>
+              )}
               <mesh
                 position={[
                   (columns - 1) * (shelfSize + spacing) * 0.25,
