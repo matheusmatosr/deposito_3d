@@ -35,7 +35,7 @@ interface ShelfProps {
   occupied: boolean;
   onClick: () => void;
   position: [number, number, number];
-  status: string; 
+  status: string;
 }
 
 const shelfSize = 0.8;
@@ -59,11 +59,12 @@ const getShelfPosition = (x: number, z: number, rows: number, columns: number): 
   ];
 };
 
-const AnimatedPositionHighlight: React.FC<{ position: [number, number, number] }> = ({ position }) => {
+const AnimatedPositionHighlight: React.FC<AnimatedPositionHighlightProps> = ({ position, color }) => {
   const ref = useRef<THREE.Mesh>(null);
 
   useFrame(() => {
     if (ref.current) {
+      ref.current.rotation.y += 0.01;
       ref.current.position.y = Math.sin(Date.now() * 0.003) * 0.15 + 0.3;
     }
   });
@@ -71,7 +72,7 @@ const AnimatedPositionHighlight: React.FC<{ position: [number, number, number] }
   return (
     <mesh ref={ref} position={position}>
       <sphereGeometry args={[0.2, 32, 32]} />
-      <meshStandardMaterial color={'#5040e0'} />
+      <meshStandardMaterial color={new THREE.Color(`rgb(${color[0]}, ${color[1]}, ${color[2]})`)} />
     </mesh>
   );
 };
@@ -86,32 +87,38 @@ const Shelf3D: React.FC<ShelfProps> = ({ onClick, position, status }) => {
     return [new THREE.Vector3(0, 0.6, 0), selectedRef.current?.position || new THREE.Vector3()];
   }, [selected]);
 
-  const handleDoubleClick = () => {
-    setAnimationActive(!animationActive);
-    setSelected(!selected);
-  };
-
   const handleShelfClick = () => {
     onClick();
   }
 
   useEffect(() => {
-    if (!animationActive) {
+    if (status === "guardar") {
+      setElevated(true);
+      setAnimationActive(true);
+      setSelected(true);
+    } else {
+      setElevated(false);
       setAnimationActive(false);
-      setElevated(false); 
+      setElevated(false);
       setSelected(!selected);
     }
-  }, [animationActive]);
+  }, [status]);
 
   return (
     <mesh onClick={handleShelfClick} position={position}>
       <boxGeometry args={[shelfSize, elevated ? 0.7 : 0.7, shelfSize]} />
-      <meshStandardMaterial color={status==='ocupado' ? '#ff7675' : '#42cd62'} />
-      {animationActive && <AnimatedPositionHighlight position={[0, 0.9, 0]} />} 
+      <meshStandardMaterial color={status === 'ocupado' ? '#ff7675' : '#42cd62'} />
+      {animationActive && (
+        <AnimatedPositionHighlight
+          position={[0, 0.9, 0]}
+          color={status === 'ocupado' ? [255, 118, 117] : [66, 205, 98]}
+        />
+      )}
+
       {selected && (
         <line>
-          {/* <bufferGeometry attach="geometry" {...lineVertices} /> */}
-          {/* <lineBasicMaterial color="yellow" /> */}
+          <bufferGeometry attach="geometry" {...lineVertices} />
+          <lineBasicMaterial color="yellow" />
         </line>
       )}
       <mesh ref={selectedRef} position={position} />
@@ -171,75 +178,111 @@ const App: React.FC = () => {
   const [columns, setColumns] = useState<number>(0);
   const [warehouse, setWarehouse] = useState<boolean[][]>([]);
   const [availablePosition, setAvailablePosition] = useState<[number, number, number] | null>(null);
-  const [selected, setSelected] = useState<SelectedBlueBalls>({});
   const [animatedCount, setAnimatedCount] = useState<number>(0);
   const [modalShow, setModalShow] = useState(false);
   const [selectedShelf, setSelectedShelf] = useState<[number, number] | null>(null);
-  
-  // const [blueBalls, setBlueBalls] = useState<{ [key: string]: boolean }>({});
-  // const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] }>({});
+  const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
+  const [isPortrait, setIsPortrait] = useState(window.innerWidth < window.innerHeight);
   const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] | boolean }>({});
-  
-  const font = new FontLoader();
+  const [animateLine, setAnimateLine] = useState(false);
+  const [activityStarted, setActivityStarted] = useState(false);
+  const [resetCounter, setResetCounter] = useState(0);
 
   const handleModalSubmit = (status: string) => {
     if (selectedShelf) {
       const [rowIndex, columnIndex] = selectedShelf;
       const key = `${rowIndex}-${columnIndex}`;
-
+  
       if (status === "guardar") {
+        const shelfPosition = getShelfPosition(columnIndex, rowIndex, rows, columns);
         const updatedBlueBalls = { ...blueBalls, [key]: true };
+  
+        setAvailablePosition(shelfPosition);
         setBlueBalls(updatedBlueBalls);
         setAnimatedCount(Object.keys(updatedBlueBalls).length);
-      } else if (blueBalls[key]) {
+        setSelectedShelf(null);
+        setAnimateLine(true);
+
+      } else if (status === "ocupado") {
         const updatedBlueBalls = { ...blueBalls };
         delete updatedBlueBalls[key];
+
         setBlueBalls(updatedBlueBalls);
         setAnimatedCount(Object.keys(updatedBlueBalls).length);
+        setAnimateLine(false);
       }
-
+  
       const updatedWarehouse = [...warehouse];
       updatedWarehouse[rowIndex][columnIndex] = status === "ocupado";
+      
       setWarehouse(updatedWarehouse);
       setModalShow(false);
     }
   };
-
+  
   const handleCreateWarehouseAndSetState = () => {
     const newWarehouse = handleCreateWarehouse(rows, columns);
     setWarehouse(newWarehouse);
+    setBlueBalls({}); 
   };
-
+  
   const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
-    const updatedWarehouse = [...warehouse];
-    const updatedShelfValue = !updatedWarehouse[rowIndex][columnIndex];
-    const key = `${rowIndex}-${columnIndex}`;
-
-    setSelectedShelf([rowIndex, columnIndex]);
-    setModalShow(true);
-
-    if (blueBalls[key]) {
-      const updatedBlueBalls = { ...blueBalls };
-      delete updatedBlueBalls[key];
-      setBlueBalls(updatedBlueBalls);
-    }
-
-    updatedWarehouse[rowIndex][columnIndex] = updatedShelfValue;
-    setWarehouse(updatedWarehouse);
-
-    const animatedShelfCount = updatedWarehouse.flat().filter((animated) => animated).length;
-    setAnimatedCount(animatedShelfCount);
-
-    if (!updatedShelfValue) {
-      const position = getShelfPosition(columnIndex, rowIndex, rows, columns);
-      setAvailablePosition(position);
-      setBlueBalls({ ...blueBalls, [key]: position });
+    if (activityStarted) {
+      setSelectedShelf([rowIndex, columnIndex]);
+      setModalShow(true);
     }
   };
 
   const occupiedCount = warehouse.flat().filter((occupied) => occupied).length;
   const availableCount = rows * columns - occupiedCount;
   const distanceFromCorner = .5;
+  
+ //Alerta modo Landscape
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsPortrait(window.innerWidth < window.innerHeight);
+    };
+
+    window.addEventListener('resize', checkOrientation);
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isPortrait) {
+     
+      alert('GIRE O DISPOSITIVO PARA MELHOR VISUALIZAÇÃO.');
+    }
+  }, [isPortrait]);
+
+  const handleActionButtonClick = () => {
+    if (activityStarted) {
+      handleFinishClick();
+    } else {
+      setActivityStarted(true);
+      setResetCounter(resetCounter + 1); 
+    }
+  };
+
+  const handleFinishClick = () => {
+    setActivityStarted(false);
+    toast.success("Atividade finalizada com sucesso!"); 
+  };
+
+  useEffect(() => {
+    if (resetCounter > 0) {
+      setWarehouse(handleCreateWarehouse(rows, columns));
+      setBlueBalls({});
+      setAvailablePosition(null);
+      setAnimatedCount(0);
+      setSelectedShelf(null);
+      setAnimateLine(false);
+      setResetCounter(0); 
+      toast.info("Nova atividade iniciada. Armazém foi resetado.");
+    }
+  }, [resetCounter, rows, columns]);
+
 
   // modelo do chão
   // 1
@@ -248,7 +291,7 @@ const App: React.FC = () => {
   // const { scene } = useGLTF('https://www.datocms-assets.com/77681/1692814938-cargill002.glb')
 
   return (
-    <div className="App">
+    <div className={`App ${isPortrait ? "landscape" : "portrait"}`}>
       <div className="sidebar">
         <div className="inputs">
           <div className="input-group">
@@ -273,6 +316,16 @@ const App: React.FC = () => {
             Criar armazém
           </button>
         </div>
+        <div className="buttons">
+          <button
+            className={`action-button ${activityStarted ? "finish" : "start"} ${
+              activityStarted ? "started" : ""
+            }`}
+            onClick={handleActionButtonClick}
+          >
+            {activityStarted ? "Finalizar Atividade" : "Iniciar Atividade"}
+          </button>
+        </div>
         <div className="counts">
           <p className="occupied">Ocupado: {occupiedCount}</p>
           <p className="available">Disponível: {availableCount}</p>
@@ -288,37 +341,100 @@ const App: React.FC = () => {
             <group position-y={-2}>
               <group>
                 <mesh>
-                {Object.keys(blueBalls).length > 0 && (
-                  <mesh>
-                    {Object.keys(blueBalls).map((key, index) => {
-                      const value = blueBalls[key];
-                      if (Array.isArray(value)) {
-                        const [x, y, z] = value;
-                        return (
-                          <Line
-                            key={`line-${index}`}
-                            points={[
-                              new THREE.Vector3(
+                  {Object.keys(blueBalls).length > 0 && (
+                    <mesh>
+                      {Object.keys(blueBalls).length > 0 && (
+                        <mesh>
+                          {Object.keys(blueBalls).map((key, index) => {
+                            const value = blueBalls[key];
+                            if (Array.isArray(value)) {
+                              const [x, y, z] = value;
+                              const lineStartPosition = [
                                 (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
                                 0.6,
-                                (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
-                              ),
-                              new THREE.Vector3(x, y, z),
-                            ]}
-                            color="yellow"
-                            lineWidth={7}
-                          >
-                            <lineBasicMaterial color="yellow" />
-                          </Line>
-                        );
-                      }
-                      return null; 
-                    })}
-                  </mesh>
+                                (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner,
+                              ];
+
+                              const availablePositions = [];
+                              for (let i = 1; i < availableCount + 1; i++) {
+                                const t = i / (availableCount + 1);
+                                const ix = THREE.MathUtils.lerp(
+                                  lineStartPosition[0],
+                                  x,
+                                  t
+                                );
+                                const iy = THREE.MathUtils.lerp(
+                                  lineStartPosition[1],
+                                  y,
+                                  t
+                                );
+                                const iz = THREE.MathUtils.lerp(
+                                  lineStartPosition[2],
+                                  z,
+                                  t
+                                );
+                                availablePositions.push([ix, iy, iz]);
+                              }
+
+                              const points = [];
+                              for (let i = 0; i < availablePositions.length; i++) {
+                                const [ix, iy, iz] = availablePositions[i];
+                                const intersectsBlueBall = Object.values(blueBalls).some(
+                                  (blueBall) =>
+                                    Array.isArray(blueBall) &&
+                                    ix === blueBall[0] &&
+                                    iz === blueBall[2]
+                                );
+                                if (!intersectsBlueBall) {
+                                  points.push(new THREE.Vector3(ix, iy, iz));
+                                }
+                              }
+
+                              return (
+                                <Line
+                                  key={`line-${index}`}
+                                  points={points}
+                                  color="yellow"
+                                  lineWidth={7}
+                                >
+                                  <lineBasicMaterial color="yellow" />
+                                </Line>
+                              );
+                            }
+                            return null;
+                          })}
+                        </mesh>
+                      )}
+                      {Object.keys(blueBalls).map((key, index) => {
+                        const value = blueBalls[key];
+                        if (Array.isArray(value)) {
+                          const [x, y, z] = value;
+                          return (
+                            <Line
+                              key={`line-${index}`}
+                              points={[
+                                new THREE.Vector3(
+                                  (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
+                                  0.6,
+                                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
+                                ),
+                                new THREE.Vector3(x, y, z),
+                              ]}
+                              color="yellow"
+                              lineWidth={7}
+                            >
+                              <lineBasicMaterial color="yellow" />
+                            </Line>
+                          );
+                        }
+                        return null; 
+                      })}
+                    </mesh>
                   )}
+
                 </mesh>
               </group>
-              <Model name={'entrance'} position={[
+                <Model name={'entrance'} position={[
                   (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
                   0.2,
                   (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
@@ -354,7 +470,7 @@ const App: React.FC = () => {
                     occupied={occupied}
                     onClick={() => handleToggleShelf(rowIndex, columnIndex)}
                     position={getShelfPosition(columnIndex, rowIndex, rows, columns)}
-                    status={occupied ? "ocupado" : "disponível"} 
+                    status={occupied ? "ocupado" : "disponível"}
                   />
                 ))
               )}
@@ -369,18 +485,20 @@ const App: React.FC = () => {
                   const shelfPosition = getShelfPosition(columnIndex, rowIndex, rows, columns);
                   const ballPosition: [number, number, number] = [
                     shelfPosition[0],
-                    shelfPosition[1] + 1.0, 
+                    shelfPosition[1] + 1.0,
                     shelfPosition[2],
                   ];
+                  const ballColor = blueBalls[key];
+
                   return (
                     <AnimatedPositionHighlight
                       key={key}
                       position={ballPosition}
+                      color={Array.isArray(ballColor) ? ballColor : [0, 121, 255]} 
                     />
                   );
                 })}
               </group>
-  
               <Model 
                 name="floor" 
                 position={[
@@ -398,17 +516,19 @@ const App: React.FC = () => {
                   <meshStandardMaterial color="black" transparent opacity={0.5} /> */}
                               {/* <mesh> */}
                   <primitive object={scene} args={[1.5, 1, 1.5]} />
-                  {/* </mesh> */}
                 </Model>
             </group>
           </Canvas>
         )}
+        <ToastContainer />
       </div>
-      <WarehouseModal
-        show={modalShow}
-        onHide={() => setModalShow(false)}
-        onSubmit={handleModalSubmit}
-      />
+      {modalShow && (
+        <WarehouseModal
+          show={modalShow}
+          onHide={() => setModalShow(false)}
+          onSubmit={handleModalSubmit}
+        />
+      )}
     </div>
   );
 };
