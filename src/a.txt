@@ -1,35 +1,29 @@
+
+segue o código, modifique-o e adicione a lógica para funcionar corretamente o que foi solicitado, inclusive o css acima: app.tsx
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import './App.css';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 
 import { useFrame, extend } from '@react-three/fiber';
 import * as THREE from 'three';
-import { Box, Text, OrbitControls, Line, useCursor, } from '@react-three/drei';
+import { CatmullRomCurve3 } from 'three';
+
+import { Box, Text, OrbitControls, Line, } from '@react-three/drei';
 
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader'
 import WarehouseModal from './components/WarehouseModal';
-import { useGLTF } from '@react-three/drei';
-import { TransformControls } from '@react-three/drei';
-import { useSnapshot, proxy } from 'valtio';
-import { useControls } from 'leva'
-import { ToastContainer } from 'react-bootstrap';
-import { toast } from 'react-toastify';
-
-const development = process.env.REACT_APP_ENV === 'development'
 
 extend({ TextGeometry })
 
 // type SelectedBlueBalls = { [key: string]: boolean };
-type SelectedBlueBalls = { [key: string]: [number, number, number] }; // Correção na tipagem
+type SelectedBlueBalls = { [key: string]: [number, number, number] | boolean }; // Correção na tipagem
 
-// Valtio
-const modes = ['translate', 'rotate', 'scale']
-
-const state: {
-  current: any | null;
-  mode: number;
-} = proxy({ current: null , mode: 0 })
+interface AnimatedPositionHighlightProps {
+  position: [number, number, number];
+  color: [number, number, number];
+}
 
 interface ShelfProps {
   x: number;
@@ -38,11 +32,6 @@ interface ShelfProps {
   onClick: () => void;
   position: [number, number, number];
   status: string;
-}
-
-interface AnimatedPositionHighlightProps {
-  position: [number, number, number];
-  color: [number, number, number];
 }
 
 const shelfSize = 0.8;
@@ -162,24 +151,6 @@ const AvailablePositionHighlight: React.FC<{ position: [number, number, number] 
   );
 };
 
-function Model({ name, ...props } : any) {
-  const snap = useSnapshot(state)
-  const [hovered, setHovered] = useState(false)
-  useCursor(hovered)
-  return (
-    <mesh
-      onClick={(e) => (e.stopPropagation(), (state.current = name))}
-      onPointerMissed={(e) => e.type === 'click' && (state.current = null)}
-      onContextMenu={(e) => snap.current === name && (e.stopPropagation(), (state.mode = (snap.mode + 1) % modes.length))}
-      onPointerOver={(e) => (e.stopPropagation(), setHovered(true))}
-      onPointerOut={(e) => setHovered(false)}
-      name={name}
-      {...props}
-      dispose={null}
-    />
-  )
-}
-
 const App: React.FC = () => {
   const [rows, setRows] = useState<number>(0);
   const [columns, setColumns] = useState<number>(0);
@@ -192,9 +163,7 @@ const App: React.FC = () => {
   const [isPortrait, setIsPortrait] = useState(window.innerWidth < window.innerHeight);
   const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] | boolean }>({});
   const [animateLine, setAnimateLine] = useState(false);
-  const [activityStarted, setActivityStarted] = useState(false);
-  const [resetCounter, setResetCounter] = useState(0);
-
+  
   const handleModalSubmit = (status: string) => {
     if (selectedShelf) {
       const [rowIndex, columnIndex] = selectedShelf;
@@ -234,10 +203,8 @@ const App: React.FC = () => {
   };
   
   const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
-    if (activityStarted) {
-      setSelectedShelf([rowIndex, columnIndex]);
-      setModalShow(true);
-    }
+    setSelectedShelf([rowIndex, columnIndex]);
+    setModalShow(true);
   };
 
   const occupiedCount = warehouse.flat().filter((occupied) => occupied).length;
@@ -263,39 +230,6 @@ const App: React.FC = () => {
     }
   }, [isPortrait]);
 
-  const handleActionButtonClick = () => {
-    if (activityStarted) {
-      handleFinishClick();
-    } else {
-      setActivityStarted(true);
-      setResetCounter(resetCounter + 1); 
-    }
-  };
-
-  const handleFinishClick = () => {
-    setActivityStarted(false);
-    toast.success("Atividade finalizada com sucesso!"); 
-  };
-
-  useEffect(() => {
-    if (resetCounter > 0) {
-      setWarehouse(handleCreateWarehouse(rows, columns));
-      setBlueBalls({});
-      setAvailablePosition(null);
-      setAnimatedCount(0);
-      setSelectedShelf(null);
-      setAnimateLine(false);
-      setResetCounter(0); 
-      toast.info("Nova atividade iniciada. Armazém foi resetado.");
-    }
-  }, [resetCounter, rows, columns]);
-
-
-  // modelo do chão
-  // 1
-  const { scene } = useGLTF('https://www.datocms-assets.com/77681/1692812436-cargill001.glb')
-  //2
-  // const { scene } = useGLTF('https://www.datocms-assets.com/77681/1692814938-cargill002.glb')
 
   return (
     <div className={`App ${isPortrait ? "landscape" : "portrait"}`}>
@@ -323,16 +257,6 @@ const App: React.FC = () => {
             Criar armazém
           </button>
         </div>
-        <div className="buttons">
-          <button
-            className={`action-button ${activityStarted ? "finish" : "start"} ${
-              activityStarted ? "started" : ""
-            }`}
-            onClick={handleActionButtonClick}
-          >
-            {activityStarted ? "Finalizar Atividade" : "Iniciar Atividade"}
-          </button>
-        </div>
         <div className="counts">
           <p className="occupied">Ocupado: {occupiedCount}</p>
           <p className="available">Disponível: {availableCount}</p>
@@ -344,7 +268,7 @@ const App: React.FC = () => {
           <Canvas camera={{ position: [columns * 1.5, 8, rows * 1.5], fov: 60 }}>
             <ambientLight intensity={0.5} />
             <pointLight position={[10, 10, 10]} />
-            <Controls/>
+            <OrbitControls />
             <group position-y={-2}>
               <group>
                 <mesh>
@@ -441,31 +365,32 @@ const App: React.FC = () => {
 
                 </mesh>
               </group>
-                <Model name={'entrance'} position={[
+              <Box
+                args={[1.5, 2, 2.5, 32]}
+                scale={.5}
+                position={[
                   (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
                   0.2,
-                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
-                ]} 
-                scale={.5}>
-              <Box
-                args={[1.5, 1, 2.5, 32]}
-                name='entrance'
-
+                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner,
+                ]} // Define a posição do box com base na distância fixa
               >
                 <meshStandardMaterial color="#000" />
               </Box>
               <Text
-                position={[0, 0, 1.5]}
+                position={[
+                  (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
+                  1.2,
+                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner + 0.1,
+                ]}
                 scale={[1, 1, 10]}
                 rotation={[-1, 0, 0]}
                 fontSize={0.5}
                 color="red"
                 anchorX="center"
-                anchorY="middle"
+                anchorY="top"
               >
                 ENTRADA
               </Text>
-              </Model>
             </group>
             <group position={[0, -2, 0]}>
               {warehouse.map((row, rowIndex) =>
@@ -540,29 +465,15 @@ const App: React.FC = () => {
             </group>
           </Canvas>
         )}
-        <ToastContainer />
       </div>
-      {modalShow && (
-        <WarehouseModal
-          show={modalShow}
-          onHide={() => setModalShow(false)}
-          onSubmit={handleModalSubmit}
-        />
-      )}
+      <WarehouseModal
+        show={modalShow}
+        onHide={() => setModalShow(false)}
+        onSubmit={handleModalSubmit}
+      />
     </div>
   );
 };
 
-function Controls() {
-  const snap = useSnapshot(state)
-  const scene = useThree((state) => state.scene)
-  const { mode } = useControls({ mode: { value: 'translate', options: ['translate', 'rotate', 'scale'] } })
-  return (
-    <>
-      {snap.current && development && <TransformControls object={scene.getObjectByName(snap.current)} mode={mode as "scale" | "translate" | "rotate" } />}
-      <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} />
-    </>
-  )
-}
-
 export default App;
+
