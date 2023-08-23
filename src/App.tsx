@@ -11,6 +11,8 @@ import { Box, Text, OrbitControls, Line, } from '@react-three/drei';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader'
 import WarehouseModal from './components/WarehouseModal';
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 extend({ TextGeometry })
 
@@ -160,7 +162,9 @@ const App: React.FC = () => {
   const [isPortrait, setIsPortrait] = useState(window.innerWidth < window.innerHeight);
   const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] | boolean }>({});
   const [animateLine, setAnimateLine] = useState(false);
-  
+  const [activityStarted, setActivityStarted] = useState(false);
+  const [resetCounter, setResetCounter] = useState(0);
+
   const handleModalSubmit = (status: string) => {
     if (selectedShelf) {
       const [rowIndex, columnIndex] = selectedShelf;
@@ -200,8 +204,10 @@ const App: React.FC = () => {
   };
   
   const handleToggleShelf = (rowIndex: number, columnIndex: number) => {
-    setSelectedShelf([rowIndex, columnIndex]);
-    setModalShow(true);
+    if (activityStarted) {
+      setSelectedShelf([rowIndex, columnIndex]);
+      setModalShow(true);
+    }
   };
 
   const occupiedCount = warehouse.flat().filter((occupied) => occupied).length;
@@ -226,6 +232,33 @@ const App: React.FC = () => {
       alert('GIRE O DISPOSITIVO PARA MELHOR VISUALIZAÇÃO.');
     }
   }, [isPortrait]);
+
+  const handleActionButtonClick = () => {
+    if (activityStarted) {
+      handleFinishClick();
+    } else {
+      setActivityStarted(true);
+      setResetCounter(resetCounter + 1); 
+    }
+  };
+
+  const handleFinishClick = () => {
+    setActivityStarted(false);
+    toast.success("Atividade finalizada com sucesso!"); 
+  };
+
+  useEffect(() => {
+    if (resetCounter > 0) {
+      setWarehouse(handleCreateWarehouse(rows, columns));
+      setBlueBalls({});
+      setAvailablePosition(null);
+      setAnimatedCount(0);
+      setSelectedShelf(null);
+      setAnimateLine(false);
+      setResetCounter(0); 
+      toast.info("Nova atividade iniciada. Armazém foi resetado.");
+    }
+  }, [resetCounter, rows, columns]);
 
 
   return (
@@ -252,6 +285,16 @@ const App: React.FC = () => {
           </div>
           <button className="styled-button" onClick={handleCreateWarehouseAndSetState}>
             Criar armazém
+          </button>
+        </div>
+        <div className="buttons">
+          <button
+            className={`action-button ${activityStarted ? "finish" : "start"} ${
+              activityStarted ? "started" : ""
+            }`}
+            onClick={handleActionButtonClick}
+          >
+            {activityStarted ? "Finalizar Atividade" : "Iniciar Atividade"}
           </button>
         </div>
         <div className="counts">
@@ -462,12 +505,15 @@ const App: React.FC = () => {
             </group>
           </Canvas>
         )}
+        <ToastContainer />
       </div>
-      <WarehouseModal
-        show={modalShow}
-        onHide={() => setModalShow(false)}
-        onSubmit={handleModalSubmit}
-      />
+      {modalShow && (
+        <WarehouseModal
+          show={modalShow}
+          onHide={() => setModalShow(false)}
+          onSubmit={handleModalSubmit}
+        />
+      )}
     </div>
   );
 };
