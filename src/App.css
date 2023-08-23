@@ -63,12 +63,12 @@
 .counts {
   text-align: center;
   margin-top: 20px;
-  height: auto; /* Adjust the height to auto to accommodate the button */
+  height: auto; 
   width: 220px;
   border-radius: 5px;
   box-shadow: 2px 0px 5px rgba(0, 0, 0, 0.2);
   background-color: #f4f5da;
-  position: relative; /* Add this to allow absolute positioning */
+  position: relative; 
 }
 
 .occupied {
