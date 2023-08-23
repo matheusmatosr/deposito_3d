@@ -90,3 +90,62 @@
   font-size: 18px;
   margin: 5px 0;
 }
+
+@media  only screen and (max-width: 1024px) and (orientation : landscape) 
+{
+ 
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    width: 150px;
+    background-color: #eaec9c;
+    /* padding: 5px; */
+    box-shadow: 2px 0px 5px rgba(0, 0, 0, 0.2);
+  }
+
+  .counts {
+    text-align: center;
+    margin-top: -5px;
+    height: auto;
+    width: 180px;
+    border-radius: 5px;
+    box-shadow: 2px 0px 5px rgba(0, 0, 0, 0.2);
+    background-color: #f4f5da;
+  }
+
+  
+.styled-input {
+  padding: 5px;
+  margin-bottom: -5px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input-group {
+  margin-bottom: 5px;
+}
+
+.canvas-container {
+  border: 2px solid #ccc;
+  flex: content;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  width: 100vw;
+}
+
+.inputs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 35px;
+}
+
+}

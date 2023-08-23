@@ -4,6 +4,8 @@ import { Canvas } from '@react-three/fiber';
 
 import { useFrame, extend } from '@react-three/fiber';
 import * as THREE from 'three';
+import { CatmullRomCurve3 } from 'three';
+
 import { Box, Text, OrbitControls, Line, } from '@react-three/drei';
 
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry'
@@ -26,7 +28,7 @@ interface ShelfProps {
   occupied: boolean;
   onClick: () => void;
   position: [number, number, number];
-  status: string; 
+  status: string;
 }
 
 const shelfSize = 0.8;
@@ -90,6 +92,8 @@ const Shelf3D: React.FC<ShelfProps> = ({ onClick, position, status }) => {
     } else {
       setElevated(false);
       setAnimationActive(false);
+      setElevated(false);
+      setSelected(!selected);
     }
   }, [status]);
 
@@ -152,6 +156,8 @@ const App: React.FC = () => {
   const [animatedCount, setAnimatedCount] = useState<number>(0);
   const [modalShow, setModalShow] = useState(false);
   const [selectedShelf, setSelectedShelf] = useState<[number, number] | null>(null);
+  const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
+  const [isPortrait, setIsPortrait] = useState(window.innerWidth < window.innerHeight);
   const [blueBalls, setBlueBalls] = useState<{ [key: string]: [number, number, number] | boolean }>({});
   const [animateLine, setAnimateLine] = useState(false);
   
@@ -201,9 +207,29 @@ const App: React.FC = () => {
   const occupiedCount = warehouse.flat().filter((occupied) => occupied).length;
   const availableCount = rows * columns - occupiedCount;
   const distanceFromCorner = .5;
+  
+ //Alerta modo Landscape
+  useEffect(() => {
+    const checkOrientation = () => {
+      setIsPortrait(window.innerWidth < window.innerHeight);
+    };
+
+    window.addEventListener('resize', checkOrientation);
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isPortrait) {
+     
+      alert('GIRE O DISPOSITIVO PARA MELHOR VISUALIZAÇÃO.');
+    }
+  }, [isPortrait]);
+
 
   return (
-    <div className="App">
+    <div className={`App ${isPortrait ? "landscape" : "portrait"}`}>
       <div className="sidebar">
         <div className="inputs">
           <div className="input-group">
@@ -245,6 +271,68 @@ const App: React.FC = () => {
                 <mesh>
                   {Object.keys(blueBalls).length > 0 && (
                     <mesh>
+                      {Object.keys(blueBalls).length > 0 && (
+                        <mesh>
+                          {Object.keys(blueBalls).map((key, index) => {
+                            const value = blueBalls[key];
+                            if (Array.isArray(value)) {
+                              const [x, y, z] = value;
+                              const lineStartPosition = [
+                                (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
+                                0.6,
+                                (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner,
+                              ];
+
+                              const availablePositions = [];
+                              for (let i = 1; i < availableCount + 1; i++) {
+                                const t = i / (availableCount + 1);
+                                const ix = THREE.MathUtils.lerp(
+                                  lineStartPosition[0],
+                                  x,
+                                  t
+                                );
+                                const iy = THREE.MathUtils.lerp(
+                                  lineStartPosition[1],
+                                  y,
+                                  t
+                                );
+                                const iz = THREE.MathUtils.lerp(
+                                  lineStartPosition[2],
+                                  z,
+                                  t
+                                );
+                                availablePositions.push([ix, iy, iz]);
+                              }
+
+                              const points = [];
+                              for (let i = 0; i < availablePositions.length; i++) {
+                                const [ix, iy, iz] = availablePositions[i];
+                                const intersectsBlueBall = Object.values(blueBalls).some(
+                                  (blueBall) =>
+                                    Array.isArray(blueBall) &&
+                                    ix === blueBall[0] &&
+                                    iz === blueBall[2]
+                                );
+                                if (!intersectsBlueBall) {
+                                  points.push(new THREE.Vector3(ix, iy, iz));
+                                }
+                              }
+
+                              return (
+                                <Line
+                                  key={`line-${index}`}
+                                  points={points}
+                                  color="yellow"
+                                  lineWidth={7}
+                                >
+                                  <lineBasicMaterial color="yellow" />
+                                </Line>
+                              );
+                            }
+                            return null;
+                          })}
+                        </mesh>
+                      )}
                       {Object.keys(blueBalls).map((key, index) => {
                         const value = blueBalls[key];
                         if (Array.isArray(value)) {
@@ -271,23 +359,24 @@ const App: React.FC = () => {
                       })}
                     </mesh>
                   )}
+
                 </mesh>
               </group>
               <Box
-                args={[1.5, 1, 2.5, 32]}
+                args={[1.5, 2, 2.5, 32]}
                 scale={.5}
                 position={[
                   (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
                   0.2,
                   (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner,
-                ]} // Define a posição do círculo com base na distância fixa
+                ]} // Define a posição do box com base na distância fixa
               >
                 <meshStandardMaterial color="#000" />
               </Box>
               <Text
                 position={[
                   (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
-                  0.6,
+                  1.2,
                   (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner + 0.1,
                 ]}
                 scale={[1, 1, 10]}
@@ -295,7 +384,7 @@ const App: React.FC = () => {
                 fontSize={0.5}
                 color="red"
                 anchorX="center"
-                anchorY="middle"
+                anchorY="top"
               >
                 ENTRADA
               </Text>
@@ -310,7 +399,7 @@ const App: React.FC = () => {
                     occupied={occupied}
                     onClick={() => handleToggleShelf(rowIndex, columnIndex)}
                     position={getShelfPosition(columnIndex, rowIndex, rows, columns)}
-                    status={occupied ? "ocupado" : "disponível"} 
+                    status={occupied ? "ocupado" : "disponível"}
                   />
                 ))
               )}
