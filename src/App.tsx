@@ -1,28 +1,33 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import './App.css';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 
 import { useFrame, extend } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CatmullRomCurve3 } from 'three';
-
-import { Box, Text, OrbitControls, Line, } from '@react-three/drei';
+import { Box, Text, OrbitControls, Line, useCursor, } from '@react-three/drei';
 
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader'
 import WarehouseModal from './components/WarehouseModal';
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { useGLTF } from '@react-three/drei';
+import { TransformControls } from '@react-three/drei';
+import { useSnapshot, proxy } from 'valtio';
+import { useControls } from 'leva'
+
+const development = process.env.REACT_APP_ENV === 'development'
 
 extend({ TextGeometry })
 
 // type SelectedBlueBalls = { [key: string]: boolean };
-type SelectedBlueBalls = { [key: string]: [number, number, number] | boolean }; // Correção na tipagem
+type SelectedBlueBalls = { [key: string]: [number, number, number] }; // Correção na tipagem
 
-interface AnimatedPositionHighlightProps {
-  position: [number, number, number];
-  color: [number, number, number];
-}
+// Valtio
+const modes = ['translate', 'rotate', 'scale']
+
+const state: {
+  current: any | null;
+  mode: number;
+} = proxy({ current: null , mode: 0 })
 
 interface ShelfProps {
   x: number;
@@ -150,6 +155,24 @@ const AvailablePositionHighlight: React.FC<{ position: [number, number, number] 
   );
 };
 
+function Model({ name, ...props } : any) {
+  const snap = useSnapshot(state)
+  const [hovered, setHovered] = useState(false)
+  useCursor(hovered)
+  return (
+    <mesh
+      onClick={(e) => (e.stopPropagation(), (state.current = name))}
+      onPointerMissed={(e) => e.type === 'click' && (state.current = null)}
+      onContextMenu={(e) => snap.current === name && (e.stopPropagation(), (state.mode = (snap.mode + 1) % modes.length))}
+      onPointerOver={(e) => (e.stopPropagation(), setHovered(true))}
+      onPointerOut={(e) => setHovered(false)}
+      name={name}
+      {...props}
+      dispose={null}
+    />
+  )
+}
+
 const App: React.FC = () => {
   const [rows, setRows] = useState<number>(0);
   const [columns, setColumns] = useState<number>(0);
@@ -261,6 +284,12 @@ const App: React.FC = () => {
   }, [resetCounter, rows, columns]);
 
 
+  // modelo do chão
+  // 1
+  const { scene } = useGLTF('https://www.datocms-assets.com/77681/1692812436-cargill001.glb')
+  //2
+  // const { scene } = useGLTF('https://www.datocms-assets.com/77681/1692814938-cargill002.glb')
+
   return (
     <div className={`App ${isPortrait ? "landscape" : "portrait"}`}>
       <div className="sidebar">
@@ -308,7 +337,7 @@ const App: React.FC = () => {
           <Canvas camera={{ position: [columns * 1.5, 8, rows * 1.5], fov: 60 }}>
             <ambientLight intensity={0.5} />
             <pointLight position={[10, 10, 10]} />
-            <OrbitControls />
+            <Controls/>
             <group position-y={-2}>
               <group>
                 <mesh>
@@ -405,32 +434,31 @@ const App: React.FC = () => {
 
                 </mesh>
               </group>
-              <Box
-                args={[1.5, 2, 2.5, 32]}
-                scale={.5}
-                position={[
+                <Model name={'entrance'} position={[
                   (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
                   0.2,
-                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner,
-                ]} // Define a posição do box com base na distância fixa
+                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
+                ]} 
+                scale={.5}>
+              <Box
+                args={[1.5, 1, 2.5, 32]}
+                name='entrance'
+
               >
                 <meshStandardMaterial color="#000" />
               </Box>
               <Text
-                position={[
-                  (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
-                  1.2,
-                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner + 0.1,
-                ]}
+                position={[0, 0, 1.5]}
                 scale={[1, 1, 10]}
                 rotation={[-1, 0, 0]}
                 fontSize={0.5}
                 color="red"
                 anchorX="center"
-                anchorY="top"
+                anchorY="middle"
               >
                 ENTRADA
               </Text>
+              </Model>
             </group>
             <group position={[0, -2, 0]}>
               {warehouse.map((row, rowIndex) =>
@@ -471,23 +499,8 @@ const App: React.FC = () => {
                   );
                 })}
               </group>
-              {animateLine && (
-                <Line
-                  points={[
-                    new THREE.Vector3(
-                      (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
-                      0.6,
-                      (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
-                    ),
-                    availablePosition || new THREE.Vector3(), 
-                  ]}
-                  color="yellow"
-                  lineWidth={7}
-                >
-                  <lineBasicMaterial color="yellow" />
-                </Line>
-              )}
-              <mesh
+              <Model 
+                name="floor" 
                 position={[
                   (columns - 1) * (shelfSize + spacing) * 0.25,
                   -0.4,
@@ -498,10 +511,12 @@ const App: React.FC = () => {
                   0.1,
                   rows * (shelfSize + spacing) + spacing,
                 ]}
-              >
-                <boxGeometry args={[1.5, 1, 1.5]} />
-                <meshStandardMaterial color="black" transparent opacity={0.5} />
-              </mesh>
+                >
+                  {/* <boxGeometry args={[1.5, 1, 1.5]}/>
+                  <meshStandardMaterial color="black" transparent opacity={0.5} /> */}
+                              {/* <mesh> */}
+                  <primitive object={scene} args={[1.5, 1, 1.5]} />
+                </Model>
             </group>
           </Canvas>
         )}
@@ -517,5 +532,17 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+function Controls() {
+  const snap = useSnapshot(state)
+  const scene = useThree((state) => state.scene)
+  const { mode } = useControls({ mode: { value: 'translate', options: ['translate', 'rotate', 'scale'] } })
+  return (
+    <>
+      {snap.current && development && <TransformControls object={scene.getObjectByName(snap.current)} mode={mode as "scale" | "translate" | "rotate" } />}
+      <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} />
+    </>
+  )
+}
 
 export default App;
