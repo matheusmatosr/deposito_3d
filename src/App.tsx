@@ -289,6 +289,8 @@ const App: React.FC = () => {
       toast.info("Nova atividade iniciada. Armazém foi resetado.");
     }
   }, [resetCounter, rows, columns]);
+  
+
 
 
   // modelo do chão
@@ -444,11 +446,11 @@ const App: React.FC = () => {
                 <Model name={'entrance'} position={[
                   (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
                   0.2,
-                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
+                  (rows - 1.2) * (shelfSize + spacing) - distanceFromCorner
                 ]} 
                 scale={.5}>
               <Box
-                args={[1.5, 1, 2.5, 32]}
+                args={[1.5, 2.3, 1.5, 32]}
                 name='entrance'
 
               >
@@ -456,7 +458,7 @@ const App: React.FC = () => {
               </Box>
               <Text
                 position={[0, 0, 1.5]}
-                scale={[1, 1, 10]}
+                scale={[1, 3, 20]}
                 rotation={[-1, 0, 0]}
                 fontSize={0.5}
                 color="red"
@@ -524,9 +526,9 @@ const App: React.FC = () => {
               )}
               <mesh
                 position={[
-                  (columns - 1) * (shelfSize + spacing) * 0.25,
+                  (columns - 1.9) * (shelfSize + spacing) * 0.33,
                   -0.4,
-                  (rows - 1) * (shelfSize + spacing) * 0.25,
+                  (rows - 1.9) * (shelfSize + spacing) * 0.33,
                 ]}
                 scale={[
                   columns * (shelfSize + spacing) + spacing,
@@ -534,10 +536,11 @@ const App: React.FC = () => {
                   rows * (shelfSize + spacing) + spacing,
                 ]}
               >
-                <boxGeometry args={[1.5, 1, 1.5]} />
+                <boxGeometry args={[1, 1, 0.9]} />
                 <meshStandardMaterial color="black" transparent opacity={0.5} />
               </mesh>
             </group>
+            
           </Canvas>
         )}
         <ToastContainer />
