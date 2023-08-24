@@ -6,6 +6,7 @@ import { useFrame, extend } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Box, Text, OrbitControls, Line, useCursor, } from '@react-three/drei';
 
+
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader'
 import WarehouseModal from './components/WarehouseModal';
@@ -157,7 +158,8 @@ const AvailablePositionHighlight: React.FC<{ position: [number, number, number] 
 
   return (
     <mesh ref={ref} position={position}>
-      <boxGeometry args={[0, 0, 0]} />
+      <boxGeometry args={[0, 0, 0 ]} />
+      <meshBasicMaterial  />
     </mesh>
   );
 };
@@ -289,15 +291,13 @@ const App: React.FC = () => {
       toast.info("Nova atividade iniciada. Armazém foi resetado.");
     }
   }, [resetCounter, rows, columns]);
-  
-
 
 
   // modelo do chão
   // 1
-  const { scene } = useGLTF('https://www.datocms-assets.com/77681/1692812436-cargill001.glb')
+  // const { scene } = useGLTF('https://www.datocms-assets.com/77681/1692812436-cargill001.glb')
   //2
-  // const { scene } = useGLTF('https://www.datocms-assets.com/77681/1692814938-cargill002.glb')
+  const { scene } = useGLTF('https://www.datocms-assets.com/77681/1692814938-cargill002.glb')
 
   return (
     <div className={`App ${isPortrait ? "landscape" : "portrait"}`}>
@@ -344,10 +344,10 @@ const App: React.FC = () => {
       <div className="canvas-container">
         {rows > 0 && columns > 0 && (
           <Canvas camera={{ position: [columns * 1.5, 8, rows * 1.5], fov: 60 }}>
+            <Controls/>
             <ambientLight intensity={0.5} />
             <pointLight position={[10, 10, 10]} />
-            <Controls/>
-            <group position-y={-2}>
+            <group position-y={0}>
               <group>
                 <mesh>
                   {Object.keys(blueBalls).length > 0 && (
@@ -445,12 +445,12 @@ const App: React.FC = () => {
               </group>
                 <Model name={'entrance'} position={[
                   (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
-                  0.2,
-                  (rows - 1.2) * (shelfSize + spacing) - distanceFromCorner
+                  0,
+                  (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
                 ]} 
-                scale={.5}>
+                scale={.7}>
               <Box
-                args={[1.5, 2.3, 1.5, 32]}
+                args={[1.5, 1, 2.5, 10]}
                 name='entrance'
 
               >
@@ -458,7 +458,7 @@ const App: React.FC = () => {
               </Box>
               <Text
                 position={[0, 0, 1.5]}
-                scale={[1, 3, 20]}
+                scale={[1, 1, 10]}
                 rotation={[-1, 0, 0]}
                 fontSize={0.5}
                 color="red"
@@ -469,7 +469,7 @@ const App: React.FC = () => {
               </Text>
               </Model>
             </group>
-            <group position={[0, -2, 0]}>
+            <group position={[0, 0, 0]}>
               {warehouse.map((row, rowIndex) =>
                 row.map((occupied, columnIndex) => (
                   <Shelf3D
@@ -481,11 +481,12 @@ const App: React.FC = () => {
                     position={getShelfPosition(columnIndex, rowIndex, rows, columns)}
                     status={occupied ? "ocupado" : "disponível"}
                   />
+                  
                 ))
               )}
               {availablePosition && (
                 <group>
-                  <AvailablePositionHighlight position={availablePosition} />
+                  <AvailablePositionHighlight  position={availablePosition} />                 
                 </group>
               )}
               <group>
@@ -505,30 +506,32 @@ const App: React.FC = () => {
                       position={ballPosition}
                       color={Array.isArray(ballColor) ? ballColor : [0, 121, 255]} 
                     />
+                    
                   );
                 })}
+              
               </group>
               {animateLine && (
                 <Line
                   points={[
                     new THREE.Vector3(
-                      (columns - 0.000) * (shelfSize + spacing) - distanceFromCorner,
-                      0.6,
-                      (rows - 1.1) * (shelfSize + spacing) - distanceFromCorner
+                      (columns - 0) * (shelfSize + spacing) - distanceFromCorner,
+                      0,
+                      (rows - 0) * (shelfSize + spacing) - distanceFromCorner
                     ),
                     availablePosition || new THREE.Vector3(), 
                   ]}
                   color="yellow"
                   lineWidth={7}
                 >
-                  <lineBasicMaterial color="yellow" />
+                  <lineBasicMaterial  color="yellow" />
                 </Line>
               )}
               <mesh
                 position={[
-                  (columns - 1.9) * (shelfSize + spacing) * 0.33,
+                  (columns - 1) * (shelfSize + spacing) * 0.25,
                   -0.4,
-                  (rows - 1.9) * (shelfSize + spacing) * 0.33,
+                  (rows - 1) * (shelfSize + spacing) * 0.25,
                 ]}
                 scale={[
                   columns * (shelfSize + spacing) + spacing,
@@ -536,11 +539,10 @@ const App: React.FC = () => {
                   rows * (shelfSize + spacing) + spacing,
                 ]}
               >
-                <boxGeometry args={[1, 1, 0.9]} />
+                <boxGeometry  args={[1.5, 1, 1.5]} />
                 <meshStandardMaterial color="black" transparent opacity={0.5} />
               </mesh>
             </group>
-            
           </Canvas>
         )}
         <ToastContainer />
